@@ -1,9 +1,10 @@
 @font-face {
     font-family: OpenGurbaniAkhar;
     src: url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.woff2') format('woff2'),
-        url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.woff') format('woff'),
-        url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.otf')  format('opentype');
+         url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.woff') format('woff'),
+         url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.otf') format('opentype');
 }
+
 body {
     font-family: Arial, sans-serif;
     margin: 0;
@@ -11,6 +12,7 @@ body {
     background-color: #222;
     color: #fff;
     line-height: 1.6;
+    overflow-x: hidden; /* Prevent horizontal scrolling */
 }
 
 .container {
@@ -76,6 +78,7 @@ body {
 .word-list-container, .line-list-container {
     flex: 1;
     min-width: 300px;
+    overflow: auto; /* Enable scrolling */
 }
 
 .word-list, .line-list, .all-lines {
@@ -94,12 +97,13 @@ body {
     margin: 5px 0;
     padding: 10px;
     border-bottom: 1px solid #555;
-    transition: background-color 0.3s;
+    transition: background-color 0.3s, transform 0.2s;
     cursor: pointer;
 }
 
 .word-list p:hover, .line-list p:hover, .all-lines p:hover {
     background-color: #444;
+    transform: scale(1.02); /* Slight zoom effect */
 }
 
 .popup {
@@ -145,6 +149,7 @@ body {
 
 ::-webkit-scrollbar {
     width: 8px;
+    height: 8px; /* Horizontal scrollbar height */
 }
 
 ::-webkit-scrollbar-thumb {
@@ -160,13 +165,20 @@ body {
 @media (max-width: 768px) {
     .container {
         max-width: 95%;
+        padding: 15px;
     }
 
     .main-content {
         flex-direction: column;
+        gap: 10px; /* Reduce gaps */
     }
 
     .word-list-container, .line-list-container {
-        margin-bottom: 20px;
+        margin-bottom: 10px;
+    }
+
+    .word-list, .line-list {
+        max-height: 300px; /* Smaller height on smaller screens */
+        max-width: 100%; /* Ensure no horizontal overflow */
     }
 }
