@@ -1,3 +1,11 @@
+
+@font-face {
+				font-family: OpenGurbaniAkhar;
+				src: url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.woff2') format('woff2'),
+					url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.woff') format('woff'),
+					url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.otf')  format('opentype');
+			}
+
 body {
     font-family: Arial, sans-serif;
     margin: 0;
