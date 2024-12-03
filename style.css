@@ -47,6 +47,7 @@ body {
     color: #fff;
     outline: none;
     transition: border-color 0.3s;
+    font-fmaily: OpenGurbaniAkhar;
 }
 
 .search-input:focus {
