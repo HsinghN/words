@@ -3,38 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Word Viewer</title>
+    <title>Word Search and Statistics</title>
     <link rel="stylesheet" href="style.css">
+    
 </head>
 <body>
-    <div class="container">
-        <div class="search-section">
+    <header class="header">
+        <h1>Word Search and Statistics</h1>
+    </header>
+    <main class="main-content">
+        <section class="search-section">
             <input type="text" id="search-input" class="search-input" placeholder="Search for words...">
             <button id="search-button" class="search-button">Search</button>
-        </div>
+        </section>
 
-        <div class="main-content">
+        <section class="content-section">
             <div class="word-list-container">
-                <h2 class="sub-title">Shabd Kosh</h2>
+                <h2 class="sub-title">Words</h2>
                 <div id="word-list" class="word-list"></div>
             </div>
 
-            <div class="line-list-container">
-                <h2 class="sub-title">Panktis</h2>
-                <div id="line-list" class="line-list"></div>
+            <div class="statistics-container">
+                <h2 class="sub-title">Statistics</h2>
+                <div id="statistics" class="statistics"></div>
             </div>
-        </div>
 
-        <div id="all-lines-popup" class="popup">
-            <div class="popup-content">
-                <h2 class="popup-title">Shabad</h2>
-                <div id="all-lines" class="all-lines"></div>
-                <button class="close-button">Close</button>
-            </div>
-        </div>
-    </div>
+            <div id="lines" class="lines-container"></div> <!-- Separate container for lines -->
+        </section>
+    </main>
+    <footer class="footer">
+        <p>&copy; 2024 Word Search and Statistics</p>
+    </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/sql-wasm.min.js"></script>
-    <script src="script.js"></script>
+    <script src="initDatabase.js"></script>
+    <script src="displayStatistics.js"></script>
+    <script src="displayLines.js"></script>
+    <script src="eventListeners.js"></script>
 </body>
 </html>
