@@ -1,0 +1,180 @@
+/* Import the GurbaniAkhar font */
+@font-face {
+    font-family: GurbaniAkhar;
+    src: url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.woff2') format('woff2'),
+         url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.woff') format('woff'),
+         url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.otf') format('opentype');
+  }
+  
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f4f4f9;
+    color: #333;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .header {
+    background: #007bff;
+    color: #fff;
+    padding: 1rem;
+    text-align: center;
+  }
+  
+  .header h1 {
+    margin: 0;
+    font-size: 2rem;
+  }
+  
+  .main-content {
+    flex: 1;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .search-section {
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  
+  .search-input {
+    width: calc(100% - 22px);
+    max-width: 500px;
+    padding: 0.5rem;
+    margin: 0.5rem 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+  }
+  
+  .search-button {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: #007bff;
+    color: #fff;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  
+  .search-button:hover {
+    background: #0056b3;
+  }
+  
+  .content-section {
+    display: flex;
+    flex: 1;
+    justify-content: space-around;
+    height: 100%; /* Adjust height as needed */
+    height: 650px;
+  }
+  
+  .word-list-container, .statistics-container, .lines-container {
+    background: #fff;
+    padding: 1rem;
+    margin: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    height: 550px;
+    overflow-y: auto;
+  }
+  
+  .word-list-container {
+    width: 20%;
+    min-width: 150px;
+  }
+  
+  .statistics-container, .lines-container {
+    flex: 1;
+    margin-left: 10px;
+    margin-right: 10px;
+  }
+  
+  .sub-title {
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow-y: auto;
+    display: table; /* Ensure table behavior */
+  }
+  
+  table th, table td {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    text-align: left;
+    word-wrap: break-word; /* Wrap long words within cells */
+  }
+  
+  table th {
+    background: #007bff;
+    color: #fff;
+  }
+  
+  .gurmukhi-text {
+    font-family: 'GurbaniAkhar', serif;
+  }
+  
+  /* Apply Gurmukhi font to words in the word list */
+  .word-list-container .original-word {
+    font-family: 'GurbaniAkhar', serif;
+  }
+  
+  .footer {
+100%;
+  }
+  
+  @media (max-width: 768px) {
+    .content-section {
+      flex-direction: column;
+      align-items: center;
+      height: auto;
+    }
+  
+    .word-list-container, .statistics-container, .lines-container {
+      width: 100%;
+      max-width: 100%;
+      margin-left: 0;
+      margin-right: 0;
+    }
+  
+    .search-input, .search-button {
+      width: calc(100% - 22px);
+    }
+  
+    table {
+      font-size: 0.8em; /* Reduce font size for smaller screens */
+    }
+  }
+
+@media (max-width: 480px) {
+    .header h1 {
+        font-size: 1.5rem;
+    }
+
+    .search-button {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .content-section {
+        padding: 0.5rem;
+    }
+
+    .word-list-container, .statistics-container, .lines-container {
+        padding: 0.5rem;
+    }
+
+    .footer {
+        padding: 0.5rem 0;
+        font-size: 0.9rem;
+    }
+}
