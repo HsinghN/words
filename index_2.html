@@ -1,0 +1,2299 @@
+<!DOCTYPE html>
+<html lang="pa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gurbani Word Search</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Gurmukhi:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    @font-face {
+        font-family: GurbaniAkhar;
+        src: url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.woff2') format('woff2'),
+             url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.woff') format('woff');
+    }
+
+    :root {
+        --blue:       #007bff;
+        --blue-dark:  #0056b3;
+        --blue-light: #e8f0fe;
+        --blue-mid:   #b3d1ff;
+        --grey-bg:    #f4f4f9;
+        --grey-border:#ddd;
+        --text:       #333;
+        --muted:      #888;
+        --white:      #fff;
+        --shadow:     0 2px 12px rgba(0,0,0,0.09);
+        --radius:     8px;
+        --gold:       #f0a500;
+        --green:      #28a745;
+    }
+
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0;
+           background: var(--grey-bg); color: var(--text);
+           min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── HEADER ── */
+    .header { background: var(--blue); color: var(--white); padding: 0.9rem 1rem 0; text-align: center; }
+    .header h1 { margin: 0 0 0.7rem; font-size: 1.8rem; }
+    .tab-nav { display: flex; justify-content: center; flex-wrap: wrap; gap: 0; }
+    .tab-btn {
+        padding: 0.5rem 1.1rem; border: none;
+        background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8);
+        font-size: 0.85rem; font-weight: 600; cursor: pointer;
+        border-radius: 6px 6px 0 0; transition: background 0.15s, color 0.15s; margin: 0 2px;
+    }
+    .tab-btn:hover  { background: rgba(255,255,255,0.25); color: var(--white); }
+    .tab-btn.active { background: var(--white); color: var(--blue); }
+
+    /* ── LAYOUT ── */
+    .main-content { flex: 1; padding: 1rem; display: flex; flex-direction: column; }
+    .tab-panel { display: none; flex-direction: column; flex: 1; }
+    .tab-panel.active { display: flex; }
+
+    /* ── CARDS ── */
+    .card { background: var(--white); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 1rem; overflow-y: auto; }
+    .card h2, .card h3 { margin: 0 0 0.75rem; color: var(--blue);
+        border-bottom: 2px solid var(--blue); padding-bottom: 0.4rem;
+        font-size: 1rem; font-weight: 700; }
+
+    /* ── CONTROLS ── */
+    .search-row { display: flex; justify-content: center; align-items: center;
+                  gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+    .search-input { padding: 0.5rem 0.75rem; border: 2px solid #ccc;
+                    border-radius: 4px; font-size: 1rem; transition: border-color 0.15s; }
+    .search-input:focus { outline: none; border-color: var(--blue); }
+    .search-input.gu { font-family: 'Noto Sans Gurmukhi', serif; font-size: 1.15rem; width: 280px; }
+    select.search-input { width: auto; min-width: 200px; cursor: pointer; }
+    .source-filter-row { display:flex; justify-content:center; align-items:center;
+        gap:.4rem; flex-wrap:wrap; margin-bottom:.45rem; }
+    .source-filter-label { font-size:.78rem; font-weight:700; color:#555;
+        text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; }
+    select.source-filter-select { min-width:210px; font-size:.88rem;
+        border-color: var(--blue-mid); background:var(--blue-light); }
+    select.source-filter-select:focus { border-color:var(--blue); }
+    input[type=number].search-input { width: 100px; }
+
+    .btn { padding: 0.5rem 1.1rem; border: none; border-radius: 4px;
+           font-size: 0.95rem; font-weight: 600; cursor: pointer;
+           transition: background 0.12s, border-color 0.12s; }
+    .btn-primary   { background: var(--blue); color: var(--white); }
+    .btn-primary:hover { background: var(--blue-dark); }
+    .btn-secondary { background: var(--white); color: #555; border: 2px solid #ccc; }
+    .btn-secondary:hover { background: #f5f5f5; border-color: #aaa; }
+    .btn-nav { background: rgba(255,255,255,0.15); color: var(--white);
+               border: 1px solid rgba(255,255,255,0.4); border-radius: 4px;
+               padding: 0.25rem 0.7rem; font-size: 0.85rem; cursor: pointer;
+               transition: background 0.12s; }
+    .btn-nav:hover { background: rgba(255,255,255,0.25); }
+    .btn-nav:disabled { opacity: 0.35; cursor: default; }
+
+    .context-msg { text-align: center; font-size: 0.84rem; color: #666; min-height: 1.2rem; margin-bottom: 0.4rem; }
+    .context-msg .gu    { font-family: 'Noto Sans Gurmukhi', serif; font-weight: 700; color: var(--blue); }
+    .context-msg strong { color: var(--text); }
+
+    /* ── MATRA TOGGLE ── */
+    .matra-toggle-row {
+        display: flex; justify-content: center; align-items: center;
+        gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem;
+    }
+    .matra-toggle-label {
+        font-size: 0.78rem; font-weight: 700; color: #555;
+        text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap;
+    }
+    .matra-toggle-group {
+        display: inline-flex; border: 2px solid var(--blue-mid);
+        border-radius: 6px; overflow: hidden;
+    }
+    .matra-toggle-group input[type="radio"] { display: none; }
+    .matra-toggle-group label {
+        padding: 0.3rem 0.85rem; font-size: 0.82rem; font-weight: 600;
+        cursor: pointer; color: #555; background: var(--white);
+        transition: background 0.12s, color 0.12s;
+        border-right: 1px solid var(--blue-mid);
+        user-select: none; white-space: nowrap;
+    }
+    .matra-toggle-group label:last-of-type { border-right: none; }
+    .matra-toggle-group input[type="radio"]:checked + label {
+        background: var(--blue); color: var(--white);
+    }
+    .matra-toggle-group label:hover { background: var(--blue-light); }
+    .matra-toggle-group input[type="radio"]:checked + label:hover { background: var(--blue-dark); }
+
+    .sort-hint {
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        font-size: 0.75rem; color: #555; background: #f0f4ff;
+        border: 1px solid var(--blue-mid); border-radius: 999px;
+        padding: 0.18rem 0.6rem; margin-top: 0.2rem;
+        transition: opacity 0.2s;
+    }
+    .sort-hint .hint-icon { font-size: 0.78rem; }
+
+    .skeleton-group-header {
+        font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.07em; color: var(--muted);
+        background: #f8f9fb; border-top: 1px solid #eee; border-bottom: 1px solid #eee;
+        padding: 0.2rem 0.5rem; margin-top: 0.15rem;
+        font-family: 'Noto Sans Gurmukhi', serif;
+    }
+    .skeleton-group-header .sk-root {
+        color: var(--blue-dark); font-size: 0.85rem; font-weight: 700;
+    }
+    .skeleton-group-header .sk-count {
+        font-family: Arial, sans-serif; font-size: 0.68rem;
+        color: var(--muted); margin-left: 0.3rem;
+    }
+
+    /* ── WORD / PAIR ITEMS ── */
+    .badge { display: inline-block; background: var(--blue); color: var(--white);
+             font-size: 0.72rem; font-weight: 700; padding: 0.1rem 0.45rem;
+             border-radius: 999px; margin-left: 0.35rem; vertical-align: middle; }
+    .word-item { padding: 0.42rem 0.5rem; border-bottom: 1px solid #f0f0f0;
+                 border-radius: 4px; cursor: pointer;
+                 font-family: 'Noto Sans Gurmukhi', serif; font-size: 1.05rem; transition: background 0.11s; }
+    .word-item:hover    { background: var(--blue-light); }
+    .word-item.selected { background: var(--blue); color: var(--white); }
+    .pair-item { display: flex; align-items: center; gap: 0.4rem;
+                 padding: 0.45rem 0.5rem; border-bottom: 1px solid #f0f0f0;
+                 border-radius: 4px; cursor: pointer;
+                 font-family: 'Noto Sans Gurmukhi', serif; font-size: 1.05rem; transition: background 0.11s; }
+    .pair-item:hover    { background: var(--blue-light); }
+    .pair-item.selected { background: var(--blue); color: var(--white); }
+    .pair-item .pw  { font-weight: 600; }
+    .pair-item .arr { font-size: 0.72rem; opacity: 0.4; font-family: sans-serif; flex-shrink: 0; }
+    .pair-item .pwo { opacity: 0.75; }
+    .placeholder { color: var(--muted); font-size: 0.88rem; padding: 0.4rem 0; }
+
+    /* ── STATS TABLE ── */
+    table { width: 100%; border-collapse: collapse; }
+    table th, table td { padding: 0.42rem 0.5rem; border: 1px solid var(--grey-border);
+                         text-align: left; word-wrap: break-word; font-size: 0.88rem; }
+    table th { background: var(--blue); color: var(--white); }
+    .dual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .dual-grid .col h4 { font-family: 'Noto Sans Gurmukhi', serif; font-size: 1rem;
+                         margin: 0 0 0.4rem; color: var(--text);
+                         border-bottom: 1px solid var(--grey-border); padding-bottom: 0.25rem; }
+
+    /* ── GROUPED LINES ── */
+    .gurmukhi-text { font-family: GurbaniAkhar, serif; font-size: 1rem; }
+    .gurmukhi-uni  { font-family: 'Noto Sans Gurmukhi', serif; }
+    .source-group  { margin-bottom: 0.85rem; }
+    .source-label  { font-size: 0.74rem; font-weight: 700; text-transform: uppercase;
+                     letter-spacing: 0.06em; color: var(--white); background: var(--blue);
+                     padding: 0.18rem 0.55rem; border-radius: 3px; display: inline-block; margin-bottom: 0.3rem; }
+    .writer-group  { margin: 0.3rem 0 0.3rem 0.55rem; }
+    .writer-label  { font-size: 0.72rem; font-weight: 600; color: #555;
+                     border-left: 3px solid var(--blue-mid); padding-left: 0.4rem;
+                     margin-bottom: 0.2rem; display: block; }
+    .writer-group table { margin-left: 0.5rem; width: calc(100% - 0.5rem); }
+    .shabad-btn { flex-shrink: 0; background: none; border: 1px solid var(--blue-mid);
+                  border-radius: 3px; color: var(--blue); cursor: pointer;
+                  font-size: 0.72rem; padding: 0.1rem 0.3rem; white-space: nowrap; transition: background 0.12s; }
+    .shabad-btn:hover { background: var(--blue-light); }
+
+    /* ── TAB LAYOUTS ── */
+    .full-content   { display: flex; gap: 1rem; flex: 1; min-height: 0; }
+    .full-word-list { width: 220px; flex-shrink: 0; max-height: 580px; }
+    .full-stats     { width: 340px; flex-shrink: 0; max-height: 580px; }
+    .full-lines     { flex: 1; max-height: 580px; }
+    .infix-content   { display: flex; gap: 1rem; flex: 1; min-height: 0; }
+    .infix-word-list { width: 220px; flex-shrink: 0; max-height: 580px; }
+    .infix-stats     { width: 340px; flex-shrink: 0; max-height: 580px; }
+    .infix-lines     { flex: 1; max-height: 580px; }
+    .picker-section { text-align: center; margin-bottom: 0.5rem; }
+
+    /* Collapsible keyboard */
+    .kb-toggle-row { display:flex; justify-content:center; align-items:center;
+                     gap:.5rem; margin-bottom:.4rem; }
+    .kb-toggle-btn { display:inline-flex; align-items:center; gap:.35rem;
+                     padding:.28rem .75rem; border:2px solid var(--blue-mid);
+                     border-radius:4px; background:var(--blue-light); color:var(--blue-dark);
+                     font-size:.8rem; font-weight:700; cursor:pointer;
+                     transition:background .12s; user-select:none; }
+    .kb-toggle-btn:hover { background:var(--blue-mid); }
+    .kb-toggle-btn .arrow { font-size:.7rem; transition:transform .2s; }
+    .kb-toggle-btn.open .arrow { transform:rotate(180deg); }
+
+    .kb-body { overflow:hidden; max-height:0; transition:max-height .25s ease; }
+    .kb-body.open { max-height:500px; }
+
+    .picker-label { display: block; font-size: 0.78rem; font-weight: 600;
+                    letter-spacing: 0.06em; text-transform: uppercase; color: #666;
+                    margin-bottom: 0.3rem; }
+    .picker-group-label { display: inline-block; font-size: 0.67rem; font-weight: 700;
+                          color: var(--muted); text-transform: uppercase;
+                          letter-spacing: 0.06em; margin: 0.35rem .5rem .15rem 0;
+                          vertical-align: middle; }
+    .char-grid { display: flex; flex-wrap: wrap; justify-content: center;
+                 gap: 0.18rem; max-width: 820px; margin: 0 auto 0.1rem; }
+    .ch-btn { min-width: 2rem; height: 2rem; padding: 0 0.2rem;
+              border: 1px solid var(--blue); background: var(--white); color: var(--blue);
+              font-family: 'Noto Sans Gurmukhi', serif; font-size: 1rem; font-weight: 600;
+              border-radius: 3px; cursor: pointer; transition: background 0.1s;
+              display: inline-flex; align-items: center; justify-content: center; }
+    .ch-btn:hover { background: var(--blue-light); }
+    .ch-btn.matra { border-color: #6c9fd8; color: #3a78c9; }
+    .ch-btn.matra:hover { background: #ddeeff; }
+    .pairs-content { display: flex; gap: 1rem; flex: 1; min-height: 0; }
+    .pairs-list    { width: 270px; flex-shrink: 0; max-height: 440px; }
+    .pairs-stats   { flex: 1; max-height: 440px; }
+    .pairs-lines   { flex: 1; max-height: 440px; }
+
+    /* ── PAGE BROWSER ── */
+    .page-content       { display: flex; gap: 1rem; flex: 1; min-height: 0; }
+    .page-lines         { flex: 1; max-height: 600px; min-width: 0; }
+    .page-info          { flex: 1; max-height: 600px; overflow-y: auto;
+                          display: flex; flex-direction: column; gap: .75rem; min-width: 0; }
+
+    .page-summary-card  { background:var(--white); border-radius:var(--radius);
+                          box-shadow:var(--shadow); padding:.75rem 1rem; }
+    .page-summary-card h3 { margin:0 0 .5rem; color:var(--blue);
+                            border-bottom:2px solid var(--blue); padding-bottom:.3rem;
+                            font-size:.95rem; font-weight:700; }
+    .page-summary-grid  { display:grid; grid-template-columns:1fr 1fr; gap:.4rem .75rem; }
+    .page-summary-item  { display:flex; flex-direction:column; }
+    .page-summary-item .lbl { font-size:.7rem; font-weight:700; text-transform:uppercase;
+                              letter-spacing:.05em; color:var(--muted); }
+    .page-summary-item .val { font-size:.9rem; color:var(--text); font-weight:600; }
+    .page-summary-item.wide { grid-column:1/-1; }
+    .page-summary-item.wide .val { font-size:.82rem; font-weight:400; }
+
+    .page-bottom-row    { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; flex:1; min-height:0; }
+    .page-words-card, .page-wstats-card {
+                          background:var(--white); border-radius:var(--radius);
+                          box-shadow:var(--shadow); padding:.75rem 1rem;
+                          overflow-y:auto; max-height:380px; }
+    .page-words-card h3, .page-wstats-card h3 {
+                          margin:0 0 .5rem; color:var(--blue);
+                          border-bottom:2px solid var(--blue); padding-bottom:.3rem;
+                          font-size:.9rem; font-weight:700; }
+    #page-word-body     { overflow-y:auto; }
+    #page-word-stats    { overflow-y:auto; }
+
+    .page-line-row:hover td { background:var(--blue-light); cursor:pointer; }
+    .page-line-row.active td { background:#fff8e1; border-left:3px solid var(--gold); }
+
+    .shabad-block  { margin-bottom: 1.1rem; border: 1px solid var(--grey-border); border-radius: 6px; overflow: hidden; }
+    .shabad-block-header {
+        background: var(--blue-light); padding: 0.4rem 0.7rem;
+        font-size: 0.78rem; font-weight: 700; color: var(--blue-dark);
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .shabad-block table { margin: 0; }
+    .shabad-block td { border-left: none; border-right: none; }
+    .shabad-block tr:last-child td { border-bottom: none; }
+    .page-line-row td { display: flex; align-items: center; gap: 0.4rem; }
+    .page-line-row .line-num-cell {
+        font-family: Arial, sans-serif; font-size: 0.72rem;
+        color: var(--muted); width: 1.8rem; text-align: right;
+        flex-shrink: 0; padding: 0;
+    }
+
+    /* ── BANI VIEWER ── */
+    .bani-content      { display: flex; gap: 1rem; flex: 1; min-height: 0; }
+    .bani-reader       { flex: 1; max-height: 560px; }
+    .bani-word-panel   { width: 180px; flex-shrink: 0; max-height: 560px; }
+    .bani-stats-panel  { width: 320px; flex-shrink: 0; max-height: 560px; }
+
+    .bani-shabad-group { margin-bottom: 1rem; }
+    .bani-shabad-header {
+        font-size: 0.75rem; font-weight: 700; color: var(--white);
+        background: var(--blue); padding: 0.22rem 0.6rem; border-radius: 3px 3px 0 0;
+        display: flex; justify-content: space-between;
+    }
+    .bani-shabad-table { border: 1px solid var(--grey-border); border-top: none; border-radius: 0 0 4px 4px; overflow: hidden; }
+    .bani-shabad-table td { padding: 0.45rem 0.6rem; border-bottom: 1px solid #f5f5f5; }
+    .bani-shabad-table tr:last-child td { border-bottom: none; }
+    .bani-shabad-table tr:hover td { background: var(--blue-light); cursor: pointer; }
+    .bani-shabad-table tr.bani-line-active td { background: #fff8e1; border-left: 3px solid var(--gold); }
+
+    .bani-word-item { padding: 0.35rem 0.5rem; border-bottom: 1px solid #f0f0f0;
+                      cursor: pointer; font-family: 'Noto Sans Gurmukhi', serif; font-size: 1rem;
+                      transition: background 0.1s; }
+    .bani-word-item:hover    { background: var(--blue-light); }
+    .bani-word-item.selected { background: var(--blue); color: var(--white); }
+
+    /* ── SHABAD MODAL ── */
+    .modal-overlay { display: none; position: fixed; inset: 0;
+                     background: rgba(0,0,0,0.55); z-index: 1000;
+                     align-items: center; justify-content: center; padding: 1rem; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--white); border-radius: var(--radius);
+             box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+             width: 100%; max-width: 780px; max-height: 90vh;
+             display: flex; flex-direction: column; overflow: hidden; }
+    .modal-header { background: var(--blue); color: var(--white);
+                    padding: 0.75rem 1rem; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+    .modal-header-text { flex: 1; min-width: 0; }
+    .modal-title { font-size: 1.05rem; font-weight: 700; margin: 0 0 0.2rem; }
+    .modal-meta  { font-size: 0.79rem; opacity: 0.85; line-height: 1.5; }
+    .modal-nav   { display: flex; gap: 0.35rem; align-items: center; flex-shrink: 0; }
+    .modal-close { background: none; border: 2px solid rgba(255,255,255,0.5);
+                   color: var(--white); border-radius: 4px; cursor: pointer;
+                   font-size: 1rem; padding: 0.15rem 0.5rem; transition: background 0.12s; }
+    .modal-close:hover { background: rgba(255,255,255,0.2); }
+    .modal-body { overflow-y: auto; padding: 1rem; flex: 1; }
+    .shabad-table { width: 100%; border-collapse: collapse; }
+    .shabad-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid #f0f0f0;
+                       font-family: GurbaniAkhar, serif; font-size: 1.05rem; vertical-align: top; }
+    .shabad-table td.line-num { font-family: Arial, sans-serif; font-size: 0.75rem;
+                                color: var(--muted); width: 2.5rem; text-align: right;
+                                padding-right: 0.75rem; white-space: nowrap; }
+    .shabad-table tr.highlighted td { background: #fff8e1; border-left: 3px solid var(--gold); }
+    .shabad-table tr:hover td { background: var(--blue-light); cursor: pointer; }
+
+    /* ── LOADING OVERLAY ── */
+    #loading-overlay {
+        position: fixed; inset: 0; z-index: 2000;
+        background: rgba(0,0,0,0.6);
+        display: flex; align-items: center; justify-content: center;
+    }
+    #loading-overlay.hidden { display: none; }
+    #loading-box {
+        background: var(--white); border-radius: var(--radius);
+        box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+        padding: 2rem 2.5rem; text-align: center; min-width: 240px;
+    }
+    #loading-spinner {
+        width: 44px; height: 44px; margin: 0 auto 1rem;
+        border: 4px solid var(--blue-mid);
+        border-top-color: var(--blue);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-text { font-size: 1.05rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; }
+    #loading-sub  { font-size: 0.82rem; color: var(--muted); }
+
+    /* ── LINGUISTICS TAB ── */
+    .ling-subtab-row {
+        display:flex; gap:0; border-bottom:2px solid var(--blue); margin-bottom:.75rem;
+    }
+    .ling-subtab-btn {
+        padding:.38rem .9rem; border:none; background:var(--blue-light);
+        color:var(--blue-dark); font-size:.82rem; font-weight:700; cursor:pointer;
+        border-radius:4px 4px 0 0; margin-right:2px; transition:background .12s;
+    }
+    .ling-subtab-btn:hover  { background:var(--blue-mid); }
+    .ling-subtab-btn.active { background:var(--blue); color:var(--white); }
+    .ling-subpanel          { display:none; flex-direction:column; flex:1; }
+    .ling-subpanel.active   { display:flex; }
+    .ling-content { display:flex; gap:1rem; flex:1; min-height:0; }
+    .ling-left  { width:240px; flex-shrink:0; max-height:540px; }
+    .ling-mid   { width:320px; flex-shrink:0; max-height:540px; }
+    .ling-right { flex:1; max-height:540px; }
+
+    /* Level / mode toggle */
+    .level-toggle-group { display:inline-flex; border:2px solid var(--blue-mid); border-radius:6px; overflow:hidden; }
+    .level-toggle-group input[type="radio"] { display:none; }
+    .level-toggle-group label {
+        padding:.28rem .75rem; font-size:.8rem; font-weight:600; cursor:pointer;
+        color:#555; background:var(--white); transition:background .12s;
+        border-right:1px solid var(--blue-mid); user-select:none; white-space:nowrap;
+    }
+    .level-toggle-group label:last-of-type { border-right:none; }
+    .level-toggle-group input[type="radio"]:checked + label { background:var(--blue); color:var(--white); }
+    .level-toggle-group label:hover { background:var(--blue-light); }
+    .level-toggle-group input[type="radio"]:checked + label:hover { background:var(--blue-dark); }
+
+    /* Collocation items */
+    .colloc-item { display:flex; align-items:center; gap:.4rem; padding:.35rem .5rem;
+        border-bottom:1px solid #f0f0f0; cursor:pointer; border-radius:4px; transition:background .1s; }
+    .colloc-item:hover    { background:var(--blue-light); }
+    .colloc-item.selected { background:var(--blue); color:var(--white); }
+    .colloc-item .colloc-word { font-family:'Noto Sans Gurmukhi',serif; font-size:1rem; flex:1; }
+    .colloc-item .colloc-cnt  { font-size:.72rem; font-weight:700; background:var(--blue);
+        color:var(--white); border-radius:999px; padding:.05rem .4rem; flex-shrink:0; }
+    .colloc-item.selected .colloc-cnt  { background:rgba(255,255,255,.3); }
+    .colloc-mini-bar { width:44px; height:6px; background:#eef2ff; border-radius:3px; overflow:hidden; flex-shrink:0; }
+    .colloc-mini-bar-fill { height:100%; background:var(--blue); border-radius:3px; }
+    .colloc-item.selected .colloc-mini-bar { background:rgba(255,255,255,.25); }
+    .colloc-item.selected .colloc-mini-bar-fill { background:rgba(255,255,255,.8); }
+
+    /* Frequency ranking table */
+    .freq-controls { display:flex; justify-content:center; align-items:center; gap:.4rem; flex-wrap:wrap; margin-bottom:.5rem; }
+    .freq-table { width:100%; border-collapse:collapse; }
+    .freq-table th { background:var(--blue); color:var(--white); padding:.35rem .5rem;
+        font-size:.8rem; text-align:left; position:sticky; top:0; z-index:1; }
+    .freq-table td { padding:.32rem .5rem; border-bottom:1px solid #f5f5f5; font-size:.85rem; vertical-align:middle; }
+    .freq-table tbody tr:hover td { background:var(--blue-light); cursor:pointer; }
+    .freq-table tbody tr.selected td { background:var(--blue); color:var(--white); }
+    .freq-rank  { color:var(--muted); font-size:.75rem; width:2.4rem; text-align:right; }
+    .freq-word  { font-family:'Noto Sans Gurmukhi',serif; font-size:1rem; }
+    .freq-count { font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap; }
+    .freq-bar-cell { width:110px; }
+    .freq-bar-wrap { background:#eef2ff; border-radius:3px; height:10px; overflow:hidden; }
+    .freq-bar-fill { height:100%; background:var(--blue); border-radius:3px; transition:width .25s; }
+    .freq-table tbody tr.selected .freq-bar-wrap { background:rgba(255,255,255,.25); }
+    .freq-table tbody tr.selected .freq-bar-fill { background:rgba(255,255,255,.8); }
+
+    /* Rhyme finder */
+    .rhyme-group-hdr { display:flex; align-items:center; gap:.5rem;
+        background:var(--blue-light); border-top:2px solid var(--blue-mid);
+        border-bottom:1px solid var(--blue-mid); padding:.22rem .6rem; margin-top:.35rem; }
+    .rhyme-group-hdr .rg-ending { font-family:'Noto Sans Gurmukhi',serif;
+        font-size:.98rem; font-weight:700; color:var(--blue-dark); }
+    .rhyme-group-hdr .rg-count  { font-size:.72rem; color:var(--muted); font-family:sans-serif; }
+    .rhyme-word-item { display:flex; align-items:center; padding:.38rem .5rem .38rem 1.1rem;
+        border-bottom:1px solid #f5f5f5; cursor:pointer;
+        font-family:'Noto Sans Gurmukhi',serif; font-size:1rem; transition:background .1s; }
+    .rhyme-word-item:hover    { background:var(--blue-light); }
+    .rhyme-word-item.selected { background:var(--blue); color:var(--white); }
+    .rhyme-root { opacity:.65; }
+    .rhyme-end  { font-weight:700; color:var(--blue-dark); }
+    .rhyme-word-item.selected .rhyme-root { opacity:.85; color:var(--white); }
+    .rhyme-word-item.selected .rhyme-end  { color:var(--white); }
+
+    /* responsive linguistics */
+    @media (max-width:960px) {
+        .ling-content { flex-wrap:wrap; }
+        .ling-left, .ling-mid, .ling-right { width:100%; flex:none; max-height:220px; }
+    }
+
+    /* ── FOOTER ── */
+    .footer { background: var(--blue); color: var(--white); text-align: center; padding: 0.5rem; font-size: 0.88rem; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 960px) {
+        .full-content, .infix-content, .pairs-content,
+        .page-content, .bani-content { flex-wrap: wrap; }
+        .full-word-list, .infix-word-list { width: 100%; max-height: 180px; }
+        .full-stats, .full-lines, .infix-stats, .infix-lines { width: 100%; max-height: 260px; flex: none; }
+        .pairs-list { width: 100%; max-height: 180px; }
+        .pairs-stats, .pairs-lines { width: 100%; max-height: 240px; flex: none; }
+        .page-lines { width: 100%; max-height: 260px; flex: none; }
+        .page-info  { width: 100%; flex: none; }
+        .page-bottom-row { grid-template-columns: 1fr; }
+        .bani-reader, .bani-word-panel, .bani-stats-panel { width: 100%; max-height: 280px; flex: none; }
+        .dual-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+        .header h1 { font-size: 1.3rem; }
+        .tab-btn   { padding: 0.4rem 0.6rem; font-size: 0.76rem; }
+    }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <h1>Gurbani Word Search</h1>
+    <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="tab-full">🔍 Full Search</button>
+        <button class="tab-btn"        data-tab="tab-infix">◈ Infix</button>
+        <button class="tab-btn"        data-tab="tab-prefix">⬅ Prefix Pairs</button>
+        <button class="tab-btn"        data-tab="tab-suffix">➡ Suffix Pairs</button>
+        <button class="tab-btn"        data-tab="tab-page">📄 Page Browser</button>
+        <button class="tab-btn"        data-tab="tab-bani">📿 Bani Viewer</button>
+        <button class="tab-btn"        data-tab="tab-ling">🔬 Linguistics</button>
+    </nav>
+</header>
+
+<main class="main-content">
+
+    <section class="tab-panel active" id="tab-full">
+        <div style="text-align:center;margin-bottom:.75rem">
+            <div class="source-filter-row">
+                <span class="source-filter-label">Source filter:</span>
+                <select id="full-source-filter" class="search-input source-filter-select">
+                    <option value="">All Sources</option>
+                </select>
+            </div>
+
+            <div class="matra-toggle-row">
+                <span class="matra-toggle-label">Search mode:</span>
+                <div class="matra-toggle-group">
+                    <input type="radio" id="full-matra-with"    name="full-matra" value="with" checked>
+                    <label for="full-matra-with"    title="Match matras exactly as typed — precise results">With Matras&nbsp;<small style="opacity:.65;font-weight:400">(exact)</small></label>
+                    <input type="radio" id="full-matra-without" name="full-matra" value="without">
+                    <label for="full-matra-without" title="Ignore all vowel signs — find all matra variants of a root">Without Matras&nbsp;<small style="opacity:.65;font-weight:400">(root form)</small></label>
+                </div>
+            </div>
+            <div style="text-align:center;margin-bottom:.3rem">
+                <span class="sort-hint" id="full-sort-hint">
+                    <span class="hint-icon">⇅</span>
+                    <span id="full-sort-hint-text">Sorted A→Z</span>
+                </span>
+            </div>
+
+            <div class="search-row">
+                <input type="text" id="full-input" class="search-input gu" placeholder="ਸ਼ਬਦ ਖੋਜੋ / Search words…">
+                <button id="full-search-btn" class="btn btn-primary">Search</button>
+                <button id="full-clear-btn"  class="btn btn-secondary">Clear</button>
+            </div>
+            <div class="context-msg" id="full-context"></div>
+        </div>
+        <div class="full-content">
+            <div class="card full-word-list">
+                <h2>Words <span class="badge" id="full-count" style="display:none">0</span></h2>
+                <div id="full-word-list"><p class="placeholder">Search above to find words.</p></div>
+            </div>
+            <div class="card full-stats">
+                <h3>Statistics</h3>
+                <div id="full-stats-body"><p class="placeholder">Click a word to see statistics.</p></div>
+            </div>
+            <div class="card full-lines">
+                <h3>Lines <small style="font-size:.75rem;font-weight:400;color:var(--muted)">(click 📖 to open shabad)</small></h3>
+                <div id="full-lines-body"><p class="placeholder">Click a word to see lines.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="tab-panel" id="tab-infix">
+        <div class="picker-section">
+            <div class="kb-toggle-row">
+                <span class="picker-label" style="margin:0">Find words containing a sequence anywhere inside them</span>
+                <button class="kb-toggle-btn" data-kb="infix-kb">
+                    <span>⌨ Keyboard</span><span class="arrow">▼</span>
+                </button>
+            </div>
+            <div class="kb-body" id="infix-kb">
+                <span class="picker-group-label">Vowels</span><div class="char-grid" id="infix-grid-vowels"></div>
+                <span class="picker-group-label">Consonants</span><div class="char-grid" id="infix-grid-consonants"></div>
+                <span class="picker-group-label">Matras</span><div class="char-grid" id="infix-grid-matras"></div>
+                <span class="picker-group-label">Other Signs</span><div class="char-grid" id="infix-grid-other"></div>
+            </div>
+            <div class="source-filter-row">
+                <span class="source-filter-label">Source filter:</span>
+                <select id="infix-source-filter" class="search-input source-filter-select">
+                    <option value="">All Sources</option>
+                </select>
+            </div>
+            <div class="search-row" style="margin-top:.6rem">
+                <input type="text" id="infix-input" class="search-input gu" placeholder="Sequence appears here…">
+                <button id="infix-search-btn" class="btn btn-primary">Search</button>
+                <button id="infix-clear-btn"  class="btn btn-secondary">Clear</button>
+            </div>
+            <div class="context-msg" id="infix-context"></div>
+        </div>
+        <div class="infix-content">
+            <div class="card infix-word-list">
+                <h2>Words <span class="badge" id="infix-count" style="display:none">0</span></h2>
+                <div id="infix-word-list"><p class="placeholder">Build a sequence and press Search.</p></div>
+            </div>
+            <div class="card infix-stats">
+                <h3>Statistics</h3>
+                <div id="infix-stats-body"><p class="placeholder">Click a word to see statistics.</p></div>
+            </div>
+            <div class="card infix-lines">
+                <h3>Lines <small style="font-size:.75rem;font-weight:400;color:var(--muted)">(click 📖 to open shabad)</small></h3>
+                <div id="infix-lines-body"><p class="placeholder">Click a word to see lines.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="tab-panel" id="tab-prefix">
+        <div class="picker-section">
+            <div class="kb-toggle-row">
+                <span class="picker-label" style="margin:0">Find words existing both with and without a leading prefix</span>
+                <button class="kb-toggle-btn" data-kb="prefix-kb">
+                    <span>⌨ Keyboard</span><span class="arrow">▼</span>
+                </button>
+            </div>
+            <div class="kb-body" id="prefix-kb">
+                <span class="picker-group-label">Vowels</span><div class="char-grid" id="prefix-grid-vowels"></div>
+                <span class="picker-group-label">Consonants</span><div class="char-grid" id="prefix-grid-consonants"></div>
+                <span class="picker-group-label">Matras</span><div class="char-grid" id="prefix-grid-matras"></div>
+                <span class="picker-group-label">Other Signs</span><div class="char-grid" id="prefix-grid-other"></div>
+            </div>
+            <div class="source-filter-row">
+                <span class="source-filter-label">Source filter:</span>
+                <select id="prefix-source-filter" class="search-input source-filter-select">
+                    <option value="">All Sources</option>
+                </select>
+            </div>
+            <div class="search-row" style="margin-top:.6rem">
+                <input type="text" id="prefix-input" class="search-input gu" placeholder="Prefix appears here…">
+                <button id="prefix-search-btn" class="btn btn-primary">Search</button>
+                <button id="prefix-clear-btn"  class="btn btn-secondary">Clear</button>
+            </div>
+            <div class="context-msg" id="prefix-context"></div>
+        </div>
+        <div class="pairs-content">
+            <div class="card pairs-list">
+                <h2>Pairs <span class="badge" id="prefix-count" style="display:none">0</span></h2>
+                <div id="prefix-pair-list"><p class="placeholder">Build a prefix and press Search.</p></div>
+            </div>
+            <div class="card pairs-stats"><h3>Statistics</h3><div id="prefix-stats-body"><p class="placeholder">Click a pair to compare statistics.</p></div></div>
+            <div class="card pairs-lines">
+                <h3>Lines <small style="font-size:.75rem;font-weight:400;color:var(--muted)">(click 📖 to open shabad)</small></h3>
+                <div id="prefix-lines-body"><p class="placeholder">Click a pair to see lines.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="tab-panel" id="tab-suffix">
+        <div class="picker-section">
+            <div class="kb-toggle-row">
+                <span class="picker-label" style="margin:0">Find words existing both with and without a trailing suffix</span>
+                <button class="kb-toggle-btn" data-kb="suffix-kb">
+                    <span>⌨ Keyboard</span><span class="arrow">▼</span>
+                </button>
+            </div>
+            <div class="kb-body" id="suffix-kb">
+                <span class="picker-group-label">Vowels</span><div class="char-grid" id="suffix-grid-vowels"></div>
+                <span class="picker-group-label">Consonants</span><div class="char-grid" id="suffix-grid-consonants"></div>
+                <span class="picker-group-label">Matras</span><div class="char-grid" id="suffix-grid-matras"></div>
+                <span class="picker-group-label">Other Signs</span><div class="char-grid" id="suffix-grid-other"></div>
+            </div>
+            <div class="source-filter-row">
+                <span class="source-filter-label">Source filter:</span>
+                <select id="suffix-source-filter" class="search-input source-filter-select">
+                    <option value="">All Sources</option>
+                </select>
+            </div>
+            <div class="search-row" style="margin-top:.6rem">
+                <input type="text" id="suffix-input" class="search-input gu" placeholder="Suffix appears here…">
+                <button id="suffix-search-btn" class="btn btn-primary">Search</button>
+                <button id="suffix-clear-btn"  class="btn btn-secondary">Clear</button>
+            </div>
+            <div class="context-msg" id="suffix-context"></div>
+        </div>
+        <div class="pairs-content">
+            <div class="card pairs-list">
+                <h2>Pairs <span class="badge" id="suffix-count" style="display:none">0</span></h2>
+                <div id="suffix-pair-list"><p class="placeholder">Build a suffix and press Search.</p></div>
+            </div>
+            <div class="card pairs-stats"><h3>Statistics</h3><div id="suffix-stats-body"><p class="placeholder">Click a pair to compare statistics.</p></div></div>
+            <div class="card pairs-lines">
+                <h3>Lines <small style="font-size:.75rem;font-weight:400;color:var(--muted)">(click 📖 to open shabad)</small></h3>
+                <div id="suffix-lines-body"><p class="placeholder">Click a pair to see lines.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="tab-panel" id="tab-page">
+        <div style="text-align:center;margin-bottom:.75rem">
+            <div class="search-row">
+                <select id="page-source-select" class="search-input">
+                    <option value="">— Select Source —</option>
+                </select>
+                <input type="number" id="page-number-input" class="search-input" placeholder="Page #" min="1">
+                <button id="page-go-btn"   class="btn btn-primary">Go</button>
+                <button id="page-prev-btn" class="btn btn-secondary">◀ Prev</button>
+                <button id="page-next-btn" class="btn btn-secondary">Next ▶</button>
+            </div>
+            <div class="context-msg" id="page-context"></div>
+        </div>
+        <div class="page-content">
+            <div class="card page-lines">
+                <h2 id="page-lines-title">Page Lines</h2>
+                <div id="page-lines-body"><p class="placeholder">Select a source and page number above.</p></div>
+            </div>
+            <div class="page-info">
+                <div class="page-summary-card">
+                    <h3>Page Summary</h3>
+                    <div id="page-summary-body">
+                        <p class="placeholder" style="font-size:.82rem">Load a page to see its summary.</p>
+                    </div>
+                </div>
+                <div class="page-bottom-row">
+                    <div class="page-words-card">
+                        <h3>Words in Line <span class="badge" id="page-word-count" style="display:none">0</span></h3>
+                        <div id="page-word-body"><p class="placeholder">Click a line to see its words.</p></div>
+                    </div>
+                    <div class="page-wstats-card">
+                        <h3>Word Statistics</h3>
+                        <div id="page-word-stats"><p class="placeholder">Click a word to see statistics.</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="tab-panel" id="tab-bani">
+        <div style="text-align:center;margin-bottom:.75rem">
+            <div class="search-row">
+                <select id="bani-select" class="search-input" style="min-width:260px">
+                    <option value="">— Select a Bani —</option>
+                </select>
+                <button id="bani-load-btn" class="btn btn-primary">Load Bani</button>
+            </div>
+            <div class="context-msg" id="bani-context"></div>
+        </div>
+        <div class="bani-content">
+            <div class="card bani-reader">
+                <h2 id="bani-reader-title">Bani Text</h2>
+                <div id="bani-reader-body"><p class="placeholder">Select a bani and press Load.</p></div>
+            </div>
+            <div class="card bani-word-panel">
+                <h3>Words in Line <span class="badge" id="bani-word-count" style="display:none">0</span></h3>
+                <div id="bani-word-body"><p class="placeholder">Click a line to see its words.</p></div>
+            </div>
+            <div class="card bani-stats-panel">
+                <h3>Word Statistics</h3>
+                <div id="bani-stats-body"><p class="placeholder">Click a word to see its statistics.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="tab-panel" id="tab-ling">
+
+        <div class="ling-subtab-row">
+            <button class="ling-subtab-btn active" data-sub="ling-colloc">🔗 Collocations</button>
+            <button class="ling-subtab-btn"        data-sub="ling-freq">📊 Word Frequency</button>
+            <button class="ling-subtab-btn"        data-sub="ling-rhyme">🎵 Rhyme Finder</button>
+        </div>
+
+        <div class="ling-subpanel active" id="ling-colloc">
+            <div style="text-align:center;margin-bottom:.6rem">
+                <div class="source-filter-row">
+                    <span class="source-filter-label">Source:</span>
+                    <select id="colloc-source-filter" class="search-input source-filter-select">
+                        <option value="">All Sources</option>
+                    </select>
+                    <span class="source-filter-label" style="margin-left:.5rem">Level:</span>
+                    <div class="level-toggle-group">
+                        <input type="radio" id="colloc-level-line"   name="colloc-level" value="line" checked>
+                        <label for="colloc-level-line"   title="Words that appear in the same line">Same Line</label>
+                        <input type="radio" id="colloc-level-shabad" name="colloc-level" value="shabad">
+                        <label for="colloc-level-shabad" title="Words that appear anywhere in the same shabad">Same Shabad</label>
+                    </div>
+                </div>
+                <div class="search-row">
+                    <input type="text" id="colloc-input" class="search-input gu" placeholder="Enter a word to find its neighbours…">
+                    <button id="colloc-search-btn" class="btn btn-primary">Search</button>
+                    <button id="colloc-clear-btn"  class="btn btn-secondary">Clear</button>
+                </div>
+                <div class="context-msg" id="colloc-context"></div>
+            </div>
+            <div class="ling-content">
+                <div class="card ling-left">
+                    <h2>Co-occurring Words <span class="badge" id="colloc-count" style="display:none">0</span></h2>
+                    <div id="colloc-word-list"><p class="placeholder">Search a word to find its collocations.</p></div>
+                </div>
+                <div class="card ling-mid">
+                    <h3>Statistics</h3>
+                    <div id="colloc-stats-body"><p class="placeholder">Click a word to see statistics.</p></div>
+                </div>
+                <div class="card ling-right">
+                    <h3>Lines <small style="font-size:.75rem;font-weight:400;color:var(--muted)">(click 📖 to open shabad)</small></h3>
+                    <div id="colloc-lines-body"><p class="placeholder">Click a word to see lines.</p></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ling-subpanel" id="ling-freq">
+            <div style="text-align:center;margin-bottom:.6rem">
+                <div class="freq-controls">
+                    <span class="source-filter-label">Source:</span>
+                    <select id="freq-source-filter" class="search-input source-filter-select">
+                        <option value="">All Sources</option>
+                    </select>
+                    <span class="source-filter-label">Writer:</span>
+                    <select id="freq-writer-filter" class="search-input" style="min-width:160px">
+                        <option value="">All Writers</option>
+                    </select>
+                    <span class="source-filter-label">Show:</span>
+                    <select id="freq-limit" class="search-input" style="min-width:90px">
+                        <option value="50">Top 50</option>
+                        <option value="100" selected>Top 100</option>
+                        <option value="250">Top 250</option>
+                        <option value="500">Top 500</option>
+                        <option value="0">All</option>
+                    </select>
+                    <span class="source-filter-label">Sort:</span>
+                    <div class="level-toggle-group">
+                        <input type="radio" id="freq-sort-desc" name="freq-sort" value="desc" checked>
+                        <label for="freq-sort-desc">Most frequent</label>
+                        <input type="radio" id="freq-sort-asc"  name="freq-sort" value="asc">
+                        <label for="freq-sort-asc">Least frequent</label>
+                    </div>
+                    <button id="freq-load-btn" class="btn btn-primary">Load</button>
+                </div>
+                <div class="context-msg" id="freq-context"></div>
+            </div>
+            <div class="ling-content">
+                <div class="card ling-left" style="width:280px">
+                    <h2>Frequency Ranking <span class="badge" id="freq-count" style="display:none">0</span></h2>
+                    <div id="freq-table-wrap"><p class="placeholder">Choose filters and press Load.</p></div>
+                </div>
+                <div class="card ling-mid" style="width:320px">
+                    <h3>Word Statistics</h3>
+                    <div id="freq-stats-body"><p class="placeholder">Click a word to see statistics.</p></div>
+                </div>
+                <div class="card ling-right">
+                    <h3>Lines <small style="font-size:.75rem;font-weight:400;color:var(--muted)">(click 📖 to open shabad)</small></h3>
+                    <div id="freq-lines-body"><p class="placeholder">Click a word to see lines.</p></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ling-subpanel" id="ling-rhyme">
+            <div class="picker-section">
+                <div class="kb-toggle-row">
+                    <span class="picker-label" style="margin:0">Find words sharing the same ending — highlights rhyming suffix</span>
+                    <button class="kb-toggle-btn" data-kb="rhyme-kb">
+                        <span>⌨ Keyboard</span><span class="arrow">▼</span>
+                    </button>
+                </div>
+                <div class="kb-body" id="rhyme-kb">
+                    <span class="picker-group-label">Vowels</span><div class="char-grid" id="rhyme-grid-vowels"></div>
+                    <span class="picker-group-label">Consonants</span><div class="char-grid" id="rhyme-grid-consonants"></div>
+                    <span class="picker-group-label">Matras</span><div class="char-grid" id="rhyme-grid-matras"></div>
+                    <span class="picker-group-label">Other Signs</span><div class="char-grid" id="rhyme-grid-other"></div>
+                </div>
+                <div class="source-filter-row" style="margin-top:.5rem">
+                    <span class="source-filter-label">Source:</span>
+                    <select id="rhyme-source-filter" class="search-input source-filter-select">
+                        <option value="">All Sources</option>
+                    </select>
+                    <span class="source-filter-label">Min word length:</span>
+                    <input type="number" id="rhyme-min-len" class="search-input" value="2" min="1" max="20" style="width:68px">
+                    <span class="source-filter-label">Group by last:</span>
+                    <select id="rhyme-group-len" class="search-input" style="min-width:120px">
+                        <option value="0">No grouping</option>
+                        <option value="1">1 character</option>
+                        <option value="2" selected>2 characters</option>
+                        <option value="3">3 characters</option>
+                        <option value="4">4 characters</option>
+                    </select>
+                </div>
+                <div class="search-row" style="margin-top:.45rem">
+                    <input type="text" id="rhyme-input" class="search-input gu" placeholder="Ending sequence…">
+                    <button id="rhyme-search-btn" class="btn btn-primary">Find Rhymes</button>
+                    <button id="rhyme-clear-btn"  class="btn btn-secondary">Clear</button>
+                </div>
+                <div class="context-msg" id="rhyme-context"></div>
+            </div>
+            <div class="ling-content">
+                <div class="card ling-left" style="width:260px">
+                    <h2>Rhyming Words <span class="badge" id="rhyme-count" style="display:none">0</span></h2>
+                    <div id="rhyme-word-list"><p class="placeholder">Enter an ending and press Find Rhymes.</p></div>
+                </div>
+                <div class="card ling-mid">
+                    <h3>Statistics</h3>
+                    <div id="rhyme-stats-body"><p class="placeholder">Click a word to see statistics.</p></div>
+                </div>
+                <div class="card ling-right">
+                    <h3>Lines <small style="font-size:.75rem;font-weight:400;color:var(--muted)">(click 📖 to open shabad)</small></h3>
+                    <div id="rhyme-lines-body"><p class="placeholder">Click a word to see lines.</p></div>
+                </div>
+            </div>
+        </div>
+
+    </section>
+
+</main>
+
+
+<footer class="footer">&copy; 2024 Gurbani Word Search</footer>
+
+<div id="loading-overlay">
+    <div id="loading-box">
+        <div id="loading-spinner"></div>
+        <div id="loading-text">Loading database…</div>
+        <div id="loading-sub">This may take a moment on first load</div>
+        <div id="loading-progress" style="margin-top:.6rem;font-size:.78rem;color:#888;min-height:1rem"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="shabad-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-header-text">
+                <div class="modal-title" id="modal-title">Shabad</div>
+                <div class="modal-meta"  id="modal-meta"></div>
+            </div>
+            <div class="modal-nav">
+                <button class="btn-nav" id="modal-prev-btn" title="Previous Shabad">◀ Prev</button>
+                <span   id="modal-shabad-pos" style="font-size:0.78rem;opacity:0.75;white-space:nowrap"></span>
+                <button class="btn-nav" id="modal-next-btn" title="Next Shabad">Next ▶</button>
+            </div>
+            <button class="modal-close" id="modal-close">✕</button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/sql-wasm.min.js"></script>
+<script>
+
+// ══════════════════════════════════════════════════════════════════
+// DATABASE INIT
+// ══════════════════════════════════════════════════════════════════
+let db = null;
+
+(async () => {
+    const prog = id => document.getElementById('loading-progress').textContent = id;
+    try {
+        document.getElementById('loading-text').textContent = 'Initialising SQL engine…';
+        const SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/${f}` });
+        document.getElementById('loading-text').textContent = 'Fetching database…';
+        db = new SQL.Database(new Uint8Array(await (await fetch('./database.sqlite')).arrayBuffer()));
+        document.getElementById('loading-text').textContent = 'Building indexes…';
+        document.getElementById('loading-sub').textContent  = 'First load only — speeds up all searches';
+
+        // ── Critical indexes — absent from the shipped DB ──────────────
+        // These turn every word lookup from a 820K full-scan into a fast seek.
+        const indexes = [
+            ['idx_wlm_word',   'word_line_mapping(word_id)'],
+            ['idx_wlm_line',   'word_line_mapping(line_id)'],
+            ['idx_lines_shab', 'lines(shabad_id)'],
+            ['idx_shab_src',   'shabads(source_id)'],
+            ['idx_shab_wtr',   'shabads(writer_id)'],
+            ['idx_shab_ord',   'shabads(order_id)'],
+            ['idx_bl_bani',    'bani_lines(bani_id)'],
+            ['idx_bl_line',    'bani_lines(line_id)'],
+        ];
+        for (const [name, cols] of indexes) {
+            prog(`Creating index ${name}…`);
+            db.run(`CREATE INDEX IF NOT EXISTS ${name} ON ${cols}`);
+        }
+
+        prog('');
+        document.getElementById('loading-text').textContent = 'Ready!';
+        document.getElementById('loading-sub').textContent  = '';
+        setTimeout(() => document.getElementById('loading-overlay').classList.add('hidden'), 300);
+        console.log('DB ready — indexes applied');
+        onDbReady();
+    } catch(e) {
+        console.error(e);
+        document.getElementById('loading-spinner').style.display = 'none';
+        document.getElementById('loading-text').textContent = 'Failed to load database';
+        document.getElementById('loading-sub').textContent  = 'Make sure database.sqlite is in the same folder';
+    }
+})();
+
+function dbExec(sql, params) {
+    try {
+        const hasParams = params && Object.keys(params).length > 0;
+        const r = hasParams ? db.exec(sql, params) : db.exec(sql);
+        return r.length ? r[0].values : [];
+    } catch (error) {
+        console.error("SQL Execution Error:", error.message);
+        console.error("Query:", sql, "Params:", params);
+        return []; 
+    }
+}
+
+function onDbReady() {
+    populateSourceDropdown();
+    populateBaniDropdown();
+    populateSearchSourceFilters();
+    populateLinguisticsDropdowns();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════
+// MATRA HELPERS
+// ══════════════════════════════════════════════════════════════════
+
+// All matra / vowel-sign codepoints to strip.
+// Includes: aa ਾ, i ਿ, ii ੀ, u ੁ, uu ੂ, e ੇ, ai ੈ, o ੋ, au ੌ,
+//           tippi ੰ, bindi ਂ, addak ੱ, virama ੍, visarga ਃ
+const MATRA_CHARS = ['ਾ','ਿ','ੀ','ੁ','ੂ','ੇ','ੈ','ੋ','ੌ','ੰ','ਂ','ੱ','੍','ਃ'];
+
+/**
+ * Returns a nested SQLite REPLACE() expression that strips all
+ * matras from the given SQL expression/column.
+ */
+function stripMatrasSQL(expr) {
+    return MATRA_CHARS.reduce((acc, m) => `REPLACE(${acc},'${m}','')`, expr);
+}
+
+/**
+ * Strip matras from a JS string (for highlighting / grouping in UI).
+ */
+function stripMatras(str) {
+    if (!str) return '';
+    return MATRA_CHARS.reduce((s, m) => s.split(m).join(''), str);
+}
+
+// ── Update sort-hint pill when toggle changes ────────────────────
+function updateFullSortHint() {
+    const mode = document.querySelector('input[name="full-matra"]:checked').value;
+    document.getElementById('full-sort-hint-text').textContent =
+        mode === 'with'
+            ? 'Sorted A→Z (exact matches)'
+            : 'Sorted by consonant root → shortest form first (variants grouped)';
+}
+document.querySelectorAll('input[name="full-matra"]').forEach(r =>
+    r.addEventListener('change', updateFullSortHint));
+updateFullSortHint(); // initialise on page load
+
+// ══════════════════════════════════════════════════════════════════
+// CHARACTER SETS & GRIDS
+// ══════════════════════════════════════════════════════════════════
+const VOWELS     = ['ਅ','ਆ','ਇ','ਈ','ਉ','ਊ','ਏ','ਐ','ਓ','ਔ'];
+const CONSONANTS = ['ਕ','ਖ','ਗ','ਘ','ਙ','ਚ','ਛ','ਜ','ਝ','ਞ','ਟ','ਠ','ਡ','ਢ','ਣ',
+                    'ਤ','ਥ','ਦ','ਧ','ਨ','ਪ','ਫ','ਬ','ਭ','ਮ','ਯ','ਰ','ਲ','ਵ','ੜ','ਸ','ਹ'];
+const MATRAS = [{ch:'ਾ',l:'aa'},{ch:'ਿ',l:'i'},{ch:'ੀ',l:'ii'},{ch:'ੁ',l:'u'},{ch:'ੂ',l:'uu'},
+                {ch:'ੇ',l:'e'},{ch:'ੈ',l:'ai'},{ch:'ੋ',l:'o'},{ch:'ੌ',l:'au'}];
+const OTHER  = [{ch:'ੰ',l:'Tippi'},{ch:'ਂ',l:'Bindi'},{ch:'ੱ',l:'Addak'},
+                {ch:'੍',l:'Virama'},{ch:'ੲ',l:'Iri'},{ch:'ੳ',l:'Ura'},{ch:'ਃ',l:'Visarga'}];
+
+function buildCharGrid(items, gridId, inputId, extraClass) {
+    const grid = document.getElementById(gridId);
+    items.forEach(item => {
+        const ch  = typeof item==='string' ? item : item.ch;
+        const lbl = typeof item==='string' ? ch   : `${item.ch} — ${item.l}`;
+        const btn = document.createElement('button');
+        btn.className   = 'ch-btn' + (extraClass ? ' '+extraClass : '');
+        btn.textContent = ch; btn.title = lbl;
+        btn.addEventListener('click', () => { document.getElementById(inputId).value += ch; document.getElementById(inputId).focus(); });
+        grid.appendChild(btn);
+    });
+}
+['infix','prefix','suffix'].forEach(m => {
+    buildCharGrid(VOWELS,     `${m}-grid-vowels`,     `${m}-input`);
+    buildCharGrid(CONSONANTS, `${m}-grid-consonants`, `${m}-input`);
+    buildCharGrid(MATRAS,     `${m}-grid-matras`,     `${m}-input`, 'matra');
+    buildCharGrid(OTHER,      `${m}-grid-other`,      `${m}-input`, 'matra');
+});
+
+document.querySelectorAll('.kb-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const kb = document.getElementById(btn.dataset.kb);
+        const open = kb.classList.toggle('open');
+        btn.classList.toggle('open', open);
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════
+// SHARED DB HELPERS
+// ══════════════════════════════════════════════════════════════════
+// ── getWordStats: 2 queries instead of 6 ──────────────────────────
+// Query 1 — scalar totals via idx_wlm_word index seek
+// Query 2 — all grouped breakdowns in one UNION pass
+function getWordStats(wordId) {
+    const p = {$id: wordId};
+
+    const r1 = dbExec(`
+        SELECT COUNT(*) AS total, COUNT(DISTINCT l.shabad_id) AS shabs
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id = l.id
+        WHERE wlm.word_id = $id`, p)[0] ?? [0,0];
+    const total = r1[0], shabs = r1[1];
+
+    const r2 = dbExec(`
+        SELECT 'src', s.name_english, COUNT(*)
+        FROM word_line_mapping wlm
+        JOIN lines l    ON wlm.line_id  = l.id
+        JOIN shabads sh ON l.shabad_id  = sh.id
+        JOIN sources s  ON sh.source_id = s.id
+        WHERE wlm.word_id = $id GROUP BY s.id ORDER BY s.id
+        UNION ALL
+        SELECT 'wtr', w.name_english, COUNT(*)
+        FROM word_line_mapping wlm
+        JOIN lines l    ON wlm.line_id  = l.id
+        JOIN shabads sh ON l.shabad_id  = sh.id
+        JOIN writers w  ON sh.writer_id = w.id
+        WHERE wlm.word_id = $id GROUP BY w.id
+        UNION ALL
+        SELECT DISTINCT 'bani', b.name_english, NULL
+        FROM word_line_mapping wlm
+        JOIN bani_lines bl ON bl.line_id = wlm.line_id
+        JOIN banis b       ON bl.bani_id = b.id
+        WHERE wlm.word_id = $id
+        UNION ALL
+        SELECT DISTINCT 'sec', s.name_english, NULL
+        FROM word_line_mapping wlm
+        JOIN lines l    ON wlm.line_id   = l.id
+        JOIN shabads sh ON l.shabad_id   = sh.id
+        JOIN sections s ON sh.section_id = s.id
+        WHERE wlm.word_id = $id`, p);
+
+    const bySrc  = r2.filter(r=>r[0]==='src') .map(r=>[r[1],r[2]]);
+    const byWtr  = r2.filter(r=>r[0]==='wtr') .map(r=>[r[1],r[2]]);
+    const byBani = r2.filter(r=>r[0]==='bani').map(r=>[r[1]]);
+    const bySec  = r2.filter(r=>r[0]==='sec') .map(r=>[r[1]]);
+    return { total, shabs, bySrc, byWtr, byBani, bySec };
+}
+
+function getGroupedLines(wordId) {
+    return dbExec(`SELECT s.name_english,w.name_english,l.gurmukhi,l.id
+        FROM word_line_mapping wlm JOIN lines l ON wlm.line_id=l.id
+        JOIN shabads sh ON l.shabad_id=sh.id JOIN sources s ON sh.source_id=s.id
+        JOIN writers w ON sh.writer_id=w.id WHERE wlm.word_id=$id
+        ORDER BY s.id, w.name_english`,{$id:wordId});
+}
+
+function getFilteredGroupedLines(wordId, srcId, wtrId) {
+    const params = { $id: wordId };
+    let whereClause = "";
+    if (srcId) { whereClause += " AND sh.source_id = $srcId"; params.$srcId = parseInt(srcId); }
+    if (wtrId) { whereClause += " AND sh.writer_id = $wtrId"; params.$wtrId = parseInt(wtrId); }
+
+    return dbExec(`
+        SELECT s.name_english, w.name_english, l.gurmukhi, l.id
+        FROM word_line_mapping wlm 
+        JOIN lines l ON wlm.line_id = l.id
+        JOIN shabads sh ON l.shabad_id = sh.id 
+        JOIN sources s ON sh.source_id = s.id
+        JOIN writers w ON sh.writer_id = w.id 
+        WHERE wlm.word_id = $id ${whereClause}
+        ORDER BY s.id, w.name_english
+    `, params);
+}
+
+function getCollocGroupedLines(wordA, wordB, level, srcId) {
+    const srcWhere = srcId ? `AND sh.source_id = ${parseInt(srcId)}` : '';
+    
+    if (level === 'line') {
+        // Find lines that contain BOTH Word A and Word B
+        return dbExec(`
+            SELECT s.name_english, w.name_english, l.gurmukhi, l.id
+            FROM lines l
+            JOIN shabads sh ON l.shabad_id = sh.id
+            JOIN sources s ON sh.source_id = s.id
+            JOIN writers w ON sh.writer_id = w.id
+            JOIN word_line_mapping wlm1 ON l.id = wlm1.line_id
+            JOIN word_line_mapping wlm2 ON l.id = wlm2.line_id
+            WHERE wlm1.word_id = $wordA 
+              AND wlm2.word_id = $wordB 
+              ${srcWhere}
+            ORDER BY s.id, w.name_english
+        `, { $wordA: wordA, $wordB: wordB });
+    } else {
+        // Find lines containing Word B, but ONLY inside Shabads that contain Word A
+        return dbExec(`
+            SELECT DISTINCT s.name_english, w.name_english, l.gurmukhi, l.id
+            FROM lines l
+            JOIN shabads sh ON l.shabad_id = sh.id
+            JOIN sources s ON sh.source_id = s.id
+            JOIN writers w ON sh.writer_id = w.id
+            JOIN word_line_mapping wlmB ON l.id = wlmB.line_id
+            WHERE wlmB.word_id = $wordB ${srcWhere}
+              AND EXISTS (
+                  SELECT 1 FROM lines lA
+                  JOIN word_line_mapping wlmA ON lA.id = wlmA.line_id
+                  WHERE lA.shabad_id = sh.id AND wlmA.word_id = $wordA
+              )
+            ORDER BY s.id, w.name_english
+        `, { $wordA: wordA, $wordB: wordB });
+    }
+}
+
+function buildStatsTable(stats) {
+    const t = document.createElement('table');
+    [['Total Occurrences',stats.total],
+     ['Shabads Containing Word',stats.shabs],
+     ['Occurrences by Source',stats.bySrc.map(r=>`${r[0]}: ${r[1]}`).join('<br>')||'—'],
+     ['Occurrences by Writer',stats.byWtr.map(r=>`${r[0]}: ${r[1]}`).join('<br>')||'—'],
+     ['Banis Containing Word',stats.byBani.map(r=>r[0]).join('<br>')||'—'],
+     ['Sections',stats.bySec.map(r=>r[0]).join('<br>')||'—'],
+    ].forEach(([lbl,val]) => {
+        const tr=document.createElement('tr');
+        const td1=document.createElement('td'); td1.textContent=lbl;
+        const td2=document.createElement('td'); td2.innerHTML=val;
+        tr.appendChild(td1); tr.appendChild(td2); t.appendChild(tr);
+    });
+    return t;
+}
+
+function buildGroupedLinesEl(rows) {
+    if (!rows.length) { const p=document.createElement('p'); p.className='placeholder'; p.textContent='No lines found.'; return p; }
+    const wrap=document.createElement('div');
+    const bySrc={};
+    rows.forEach(([src,wtr,line,lineId])=>{
+        if(!bySrc[src]) bySrc[src]={};
+        if(!bySrc[src][wtr]) bySrc[src][wtr]=[];
+        bySrc[src][wtr].push({line,lineId});
+    });
+    Object.entries(bySrc).forEach(([src,writers])=>{
+        const sg=document.createElement('div'); sg.className='source-group';
+        const sl=document.createElement('span'); sl.className='source-label'; sl.textContent=src; sg.appendChild(sl);
+        Object.entries(writers).forEach(([wtr,items])=>{
+            const wg=document.createElement('div'); wg.className='writer-group';
+            const wl=document.createElement('span'); wl.className='writer-label'; wl.textContent=`${wtr} (${items.length})`; wg.appendChild(wl);
+            const tbl=document.createElement('table');
+            items.forEach(({line,lineId})=>{
+                const tr=document.createElement('tr');
+                const td=document.createElement('td');
+                td.style.cssText='display:flex;align-items:center;gap:.35rem';
+                const sp=document.createElement('span'); sp.className='gurmukhi-text'; sp.style.flex='1'; sp.textContent=line;
+                const nb=document.createElement('button'); nb.className='shabad-btn'; nb.textContent='📖 Shabad';
+                nb.addEventListener('click',e=>{e.stopPropagation();openShabadModal(lineId);});
+                td.appendChild(sp); td.appendChild(nb); tr.appendChild(td); tbl.appendChild(tr);
+            });
+            wg.appendChild(tbl); sg.appendChild(wg);
+        });
+        wrap.appendChild(sg);
+    });
+    return wrap;
+}
+
+function buildDualPanel(pairsArr, statsBodyId, linesBodyId) {
+    const sb=document.getElementById(statsBodyId), lb=document.getElementById(linesBodyId);
+    const ds=document.createElement('div'); ds.className='dual-grid';
+    const dl=document.createElement('div'); dl.className='dual-grid';
+    pairsArr.forEach(({label,id})=>{
+        const sc=document.createElement('div'); sc.className='col';
+        const sh=document.createElement('h4'); sh.innerHTML=`<span class="gurmukhi-uni">${label}</span>`;
+        sc.appendChild(sh); sc.appendChild(buildStatsTable(getWordStats(id))); ds.appendChild(sc);
+        const lc=document.createElement('div'); lc.className='col';
+        const lh=document.createElement('h4'); lh.innerHTML=`<span class="gurmukhi-uni">${label}</span>`;
+        lc.appendChild(lh); lc.appendChild(buildGroupedLinesEl(getGroupedLines(id))); dl.appendChild(lc);
+    });
+    sb.innerHTML=''; sb.appendChild(ds); lb.innerHTML=''; lb.appendChild(dl);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SHABAD MODAL  (with Prev / Next navigation)
+// ══════════════════════════════════════════════════════════════════
+let modalCurrentShabadId = null;
+let modalHighlightLineId = null;
+let _totalShabadsCache   = null;
+function getTotalShabads() {
+    if (_totalShabadsCache === null)
+        _totalShabadsCache = dbExec(`SELECT COUNT(*) FROM shabads`)[0]?.[0] ?? '?';
+    return _totalShabadsCache;
+}
+
+function openShabadModal(lineId, shabadIdOverride) {
+    if (!db) return;
+    let shabadId = shabadIdOverride ?? null;
+    let highlightId = lineId ?? null;
+    if (!shabadId && lineId) {
+        const r = dbExec(`SELECT shabad_id FROM lines WHERE id=$id`,{$id:lineId});
+        if (!r.length) return;
+        shabadId = r[0][0];
+    }
+    modalCurrentShabadId = shabadId;
+    modalHighlightLineId = highlightId;
+    renderShabadModal(shabadId, highlightId);
+    document.getElementById('shabad-modal').classList.add('open');
+}
+
+function renderShabadModal(shabadId, highlightLineId) {
+    const meta = dbExec(`SELECT src.name_english, w.name_english, sec.name_english,
+        COALESCE(sub.name_english,'—'), src.page_name_english,
+        (SELECT source_page FROM lines WHERE shabad_id=$sid ORDER BY order_id LIMIT 1),
+        sh.order_id
+        FROM shabads sh JOIN sources src ON sh.source_id=src.id
+        JOIN writers w ON sh.writer_id=w.id JOIN sections sec ON sh.section_id=sec.id
+        LEFT JOIN subsections sub ON sh.subsection_id=sub.id
+        WHERE sh.id=$sid`,{$sid:shabadId});
+
+    if (meta.length) {
+        const [src,writer,section,subsection,pageName,page] = meta[0];
+        document.getElementById('modal-title').textContent = `Shabad — ${src}`;
+        document.getElementById('modal-meta').innerHTML =
+            `<strong>Writer:</strong> ${writer} &nbsp;|&nbsp; <strong>Section:</strong> ${section}` +
+            (subsection!=='—'?` › ${subsection}`:'') +
+            ` &nbsp;|&nbsp; <strong>${pageName}:</strong> ${page??'—'}`;
+    }
+
+    const orderId  = meta[0]?.[6];
+    const prevRow  = dbExec(`SELECT id FROM shabads WHERE order_id < $o ORDER BY order_id DESC LIMIT 1`,{$o:orderId});
+    const nextRow  = dbExec(`SELECT id FROM shabads WHERE order_id > $o ORDER BY order_id ASC  LIMIT 1`,{$o:orderId});
+    document.getElementById('modal-shabad-pos').textContent = `#${orderId} / ${getTotalShabads()}`;
+    document.getElementById('modal-prev-btn').disabled = !prevRow.length;
+    document.getElementById('modal-next-btn').disabled = !nextRow.length;
+    document.getElementById('modal-prev-btn').dataset.shabadId = prevRow[0]?.[0] ?? '';
+    document.getElementById('modal-next-btn').dataset.shabadId = nextRow[0]?.[0] ?? '';
+
+    const lines = dbExec(`SELECT id,gurmukhi,source_line FROM lines WHERE shabad_id=$sid ORDER BY order_id`,{$sid:shabadId});
+    const body  = document.getElementById('modal-body');
+    body.innerHTML = '';
+    const tbl = document.createElement('table'); tbl.className='shabad-table';
+    lines.forEach(([lId,gurmukhi,srcLine],idx)=>{
+        const tr=document.createElement('tr');
+        if(lId===highlightLineId) tr.classList.add('highlighted');
+        const numTd=document.createElement('td'); numTd.className='line-num'; numTd.textContent=srcLine??(idx+1);
+        const txtTd=document.createElement('td'); txtTd.className='gurmukhi-text'; txtTd.textContent=gurmukhi;
+        tr.appendChild(numTd); tr.appendChild(txtTd); tbl.appendChild(tr);
+    });
+    body.appendChild(tbl);
+    requestAnimationFrame(()=>{
+        const hl=body.querySelector('.highlighted');
+        if(hl) hl.scrollIntoView({block:'center',behavior:'smooth'});
+        else body.scrollTop=0;
+    });
+}
+
+document.getElementById('modal-prev-btn').addEventListener('click', function() {
+    const sid = this.dataset.shabadId;
+    if (sid) { modalCurrentShabadId=sid; modalHighlightLineId=null; renderShabadModal(sid,null); }
+});
+document.getElementById('modal-next-btn').addEventListener('click', function() {
+    const sid = this.dataset.shabadId;
+    if (sid) { modalCurrentShabadId=sid; modalHighlightLineId=null; renderShabadModal(sid,null); }
+});
+document.getElementById('modal-close').addEventListener('click', ()=>document.getElementById('shabad-modal').classList.remove('open'));
+document.getElementById('shabad-modal').addEventListener('click', e=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove('open'); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.getElementById('shabad-modal').classList.remove('open'); });
+
+// ══════════════════════════════════════════════════════════════════
+// TAB 1 — FULL SEARCH  (with matra toggle)
+// ══════════════════════════════════════════════════════════════════
+
+/**
+ * Render word list items in "with matras" mode.
+ * Sort: A→Z by unicode_word.
+ * Display: exact word, highlight matching prefix.
+ */
+function renderFullWordListExact(results, query, listDiv) {
+    const esc = query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    results.forEach(([wId, uni, trans]) => {
+        const item = document.createElement('div');
+        item.className = 'word-item';
+        // Highlight the matched prefix at start
+        item.innerHTML = uni.replace(new RegExp(`^(${esc})`, 'u'),
+            '<mark style="background:#fff176;border-radius:2px">$1</mark>');
+        item.title = trans ? `Transliteration: ${trans}` : '';
+        item.addEventListener('click', () => onFullWordClick(item, wId, '#full-word-list'));
+        listDiv.appendChild(item);
+    });
+}
+
+/**
+ * Render word list items in "without matras" mode.
+ * Sort: by stripped root (A→Z), then word length ascending (root first).
+ * Display: words grouped under their skeleton header.
+ */
+function renderFullWordListNoMatra(results, listDiv) {
+    // Group by stripped root
+    const groups = new Map(); // strippedRoot → [{wId, uni}]
+    results.forEach(([wId, uni]) => {
+        const root = stripMatras(uni);
+        if (!groups.has(root)) groups.set(root, []);
+        groups.get(root).push({ wId, uni });
+    });
+
+    groups.forEach((items, root) => {
+        // Group header showing the skeleton
+        const hdr = document.createElement('div');
+        hdr.className = 'skeleton-group-header';
+        hdr.innerHTML = `<span class="sk-root">${root || '—'}</span><span class="sk-count">(${items.length} form${items.length!==1?'s':''})</span>`;
+        listDiv.appendChild(hdr);
+
+        // Items sorted shortest → longest within the group
+        items.sort((a,b) => a.uni.length - b.uni.length || a.uni.localeCompare(b.uni));
+        items.forEach(({ wId, uni }) => {
+            const item = document.createElement('div');
+            item.className = 'word-item';
+            // Highlight the consonantal skeleton within the word
+            item.textContent = uni;
+            item.addEventListener('click', () => onFullWordClick(item, wId, '#full-word-list'));
+            listDiv.appendChild(item);
+        });
+    });
+}
+
+function onFullWordClick(item, wId, listSelector) {
+    document.querySelectorAll(`${listSelector} .word-item`).forEach(i=>i.classList.remove('selected'));
+    item.classList.add('selected');
+    try {
+        document.getElementById('full-stats-body').innerHTML='';
+        document.getElementById('full-stats-body').appendChild(buildStatsTable(getWordStats(wId)));
+        document.getElementById('full-lines-body').innerHTML='';
+        document.getElementById('full-lines-body').appendChild(buildGroupedLinesEl(getGroupedLines(wId)));
+    } catch(e) {
+        console.error('full word detail error:', e);
+        document.getElementById('full-stats-body').innerHTML='<p class="placeholder">Error loading statistics.</p>';
+        document.getElementById('full-lines-body').innerHTML='<p class="placeholder">Error loading lines.</p>';
+    }
+}
+
+function fullSearch() {
+    const q = document.getElementById('full-input').value.trim();
+    if (!q || !db) return;
+
+    const mode  = document.querySelector('input[name="full-matra"]:checked').value; // 'with' | 'without'
+    const srcId = document.getElementById('full-source-filter').value;
+
+    const listDiv = document.getElementById('full-word-list');
+    const cntEl   = document.getElementById('full-count');
+    const ctxEl   = document.getElementById('full-context');
+    listDiv.innerHTML = '';
+    document.getElementById('full-stats-body').innerHTML = '<p class="placeholder">Click a word to see statistics.</p>';
+    document.getElementById('full-lines-body').innerHTML = '<p class="placeholder">Click a word to see lines.</p>';
+
+    let results;
+
+    if (mode === 'with') {
+        // ── Exact / with-matra search ─────────────────────────────
+        // Match words that START WITH the query (prefix LIKE), sorted A→Z.
+        const sf = buildSourceFilter(srcId, { $q: `${q}%` });
+        results = dbExec(
+            `${sf.cte || ''}
+             SELECT DISTINCT w.word_id, w.unicode_word, w.transliterated_word
+             FROM words w
+             WHERE (w.unicode_word LIKE $q OR w.transliterated_word LIKE $q)
+             ${sf.where}
+             ORDER BY w.unicode_word COLLATE NOCASE`,
+            sf.params);
+    } else {
+        // ── Without-matra (skeleton) search ──────────────────────
+        // Strip matras from both query and stored words, match by skeleton prefix.
+        // Sort: by stripped skeleton A→Z, then by word length ASC (root first).
+        const strippedQ = stripMatras(q);
+        const sf = buildSourceFilter(srcId, { $sq: `${strippedQ}%` });
+        const strippedCol = stripMatrasSQL('w.unicode_word');
+        results = dbExec(
+            `${sf.cte || ''}
+             SELECT DISTINCT w.word_id, w.unicode_word, w.transliterated_word
+             FROM words w
+             WHERE ${strippedCol} LIKE $sq
+             ${sf.where}
+             ORDER BY ${strippedCol} COLLATE NOCASE,
+                      LENGTH(w.unicode_word) ASC,
+                      w.unicode_word COLLATE NOCASE`,
+            sf.params);
+    }
+
+    if (!results.length) {
+        listDiv.innerHTML = '<p class="placeholder">No words found.</p>';
+        cntEl.style.display = 'none';
+        ctxEl.innerHTML = mode === 'without'
+            ? `No words found for skeleton <span class="gu">${stripMatras(q)}</span>`
+            : 'No results.';
+        return;
+    }
+
+    cntEl.textContent = results.length;
+    cntEl.style.display = 'inline-block';
+    const srcLabel = srcId
+        ? ` in <strong>${document.getElementById('full-source-filter').options[document.getElementById('full-source-filter').selectedIndex].text}</strong>`
+        : '';
+    if (mode === 'with') {
+        ctxEl.innerHTML = `<strong>${results.length}</strong> word${results.length!==1?'s':''} for <span class="gu">${q}</span>${srcLabel}`;
+        renderFullWordListExact(results, q, listDiv);
+    } else {
+        const skeleton = stripMatras(q);
+        ctxEl.innerHTML = `<strong>${results.length}</strong> word${results.length!==1?'s':''} with root <span class="gu">${skeleton}</span>${srcLabel} — grouped by consonant skeleton`;
+        renderFullWordListNoMatra(results, listDiv);
+    }
+}
+
+function fullClear() {
+    document.getElementById('full-input').value = '';
+    document.getElementById('full-context').innerHTML = '';
+    document.getElementById('full-count').style.display = 'none';
+    document.getElementById('full-word-list').innerHTML = '<p class="placeholder">Search above to find words.</p>';
+    document.getElementById('full-stats-body').innerHTML = '<p class="placeholder">Click a word to see statistics.</p>';
+    document.getElementById('full-lines-body').innerHTML = '<p class="placeholder">Click a word to see lines.</p>';
+    document.getElementById('full-input').focus();
+}
+document.getElementById('full-search-btn').addEventListener('click', fullSearch);
+document.getElementById('full-clear-btn').addEventListener('click', fullClear);
+document.getElementById('full-input').addEventListener('keydown', e => { if(e.key==='Enter') fullSearch(); });
+
+// ══════════════════════════════════════════════════════════════════
+// TAB 2 — INFIX SEARCH
+// ══════════════════════════════════════════════════════════════════
+function infixSearch() {
+    const token=document.getElementById('infix-input').value.trim();
+    if(!token||!db) return;
+    const srcId = document.getElementById('infix-source-filter').value;
+    const sf = buildSourceFilter(srcId, {$q:`%${token}%`});
+    const results=dbExec(
+        `${sf.cte||''}
+         SELECT DISTINCT w.word_id,w.unicode_word FROM words w
+         WHERE w.unicode_word LIKE $q
+         ${sf.where}
+         ORDER BY w.unicode_word`,
+        sf.params);
+    const listDiv=document.getElementById('infix-word-list'), cntEl=document.getElementById('infix-count'), ctxEl=document.getElementById('infix-context');
+    listDiv.innerHTML='';
+    if(!results.length){listDiv.innerHTML='<p class="placeholder">No words found.</p>';cntEl.style.display='none';ctxEl.innerHTML='No results.';return;}
+    cntEl.textContent=results.length; cntEl.style.display='inline-block';
+    const srcLabelI = srcId ? ` in <strong>${document.getElementById('infix-source-filter').options[document.getElementById('infix-source-filter').selectedIndex].text}</strong>` : '';
+    ctxEl.innerHTML=`<strong>${results.length}</strong> word${results.length!==1?'s':''} containing <span class="gu">${token}</span>${srcLabelI}`;
+    const esc=token.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    results.forEach(([wId,uni])=>{
+        const item=document.createElement('div'); item.className='word-item';
+        item.innerHTML=uni.replace(new RegExp(`(${esc})`),'<mark style="background:#fff176;border-radius:2px">$1</mark>');
+        item.addEventListener('click',()=>{
+            document.querySelectorAll('#infix-word-list .word-item').forEach(i=>i.classList.remove('selected'));
+            item.classList.add('selected');
+            try {
+                document.getElementById('infix-stats-body').innerHTML='';
+                document.getElementById('infix-stats-body').appendChild(buildStatsTable(getWordStats(wId)));
+                document.getElementById('infix-lines-body').innerHTML='';
+                document.getElementById('infix-lines-body').appendChild(buildGroupedLinesEl(getGroupedLines(wId)));
+            } catch(e) { console.error('infix word detail error:',e);
+                document.getElementById('infix-stats-body').innerHTML='<p class="placeholder">Error loading statistics.</p>';
+                document.getElementById('infix-lines-body').innerHTML='<p class="placeholder">Error loading lines.</p>'; }
+        });
+        listDiv.appendChild(item);
+    });
+}
+function infixClear() {
+    document.getElementById('infix-input').value=''; document.getElementById('infix-context').innerHTML='';
+    document.getElementById('infix-count').style.display='none';
+    document.getElementById('infix-word-list').innerHTML='<p class="placeholder">Build a sequence and press Search.</p>';
+    document.getElementById('infix-stats-body').innerHTML='<p class="placeholder">Click a word to see statistics.</p>';
+    document.getElementById('infix-lines-body').innerHTML='<p class="placeholder">Click a word to see lines.</p>';
+    document.getElementById('infix-input').focus();
+}
+document.getElementById('infix-search-btn').addEventListener('click', infixSearch);
+document.getElementById('infix-clear-btn').addEventListener('click', infixClear);
+document.getElementById('infix-input').addEventListener('keydown',e=>{if(e.key==='Enter')infixSearch();});
+
+// ══════════════════════════════════════════════════════════════════
+// TABS 3 & 4 — PREFIX / SUFFIX PAIRS
+// ══════════════════════════════════════════════════════════════════
+function runPairSearch(mode) {
+    const token=document.getElementById(`${mode}-input`).value.trim();
+    if(!token||!db) return;
+    const tokenLen=[...token].length;
+    const pattern=mode==='prefix'?`${token}%`:`%${token}`;
+    const srcId = document.getElementById(`${mode}-source-filter`).value;
+
+    const listDiv=document.getElementById(`${mode}-pair-list`), cntEl=document.getElementById(`${mode}-count`), ctxEl=document.getElementById(`${mode}-context`);
+    listDiv.innerHTML='';
+    document.getElementById(`${mode}-stats-body`).innerHTML='<p class="placeholder">Click a pair to compare statistics.</p>';
+    document.getElementById(`${mode}-lines-body`).innerHTML='<p class="placeholder">Click a pair to see lines.</p>';
+
+    const stripExpr = mode==='prefix'
+        ? `SUBSTR(w1.unicode_word, $tlen + 1)`
+        : `SUBSTR(w1.unicode_word, 1, LENGTH(w1.unicode_word) - $tlen)`;
+
+    // Use cached source filter table (built once per source via buildSourceFilter)
+    const params = { $pat: pattern, $tlen: tokenLen };
+    let srcFilterExpr = '';
+    if (srcId) {
+        // Ensure the cached source table exists
+        buildSourceFilter(srcId, {});
+        const tbl = `_sf_src_${parseInt(srcId)}`;
+        srcFilterExpr = `AND EXISTS (SELECT 1 FROM ${tbl} WHERE word_id = w1.word_id)
+                         AND EXISTS (SELECT 1 FROM ${tbl} WHERE word_id = w2.word_id)`;
+    }
+
+    const pairs = dbExec(`
+        SELECT DISTINCT w1.word_id, w1.unicode_word, w2.word_id, w2.unicode_word
+        FROM words w1
+        JOIN words w2 ON w2.unicode_word = ${stripExpr}
+             AND LENGTH(${stripExpr}) > 0
+        WHERE w1.unicode_word LIKE $pat
+        ${srcFilterExpr}
+        ORDER BY w1.unicode_word
+    `, params).map(([id1,word1,id2,word2])=>({withId:id1,withWord:word1,withoutId:id2,withoutWord:word2}));
+
+    if(!pairs.length){
+        const srcNote = srcId ? ` in ${document.getElementById(`${mode}-source-filter`).options[document.getElementById(`${mode}-source-filter`).selectedIndex].text}` : '';
+        listDiv.innerHTML=`<p class="placeholder">No pairs found for <span class="gurmukhi-uni">${token}</span>${srcNote}.</p>`;
+        cntEl.style.display='none'; ctxEl.innerHTML=`No pairs found${srcNote}.`; return;
+    }
+    cntEl.textContent=pairs.length; cntEl.style.display='inline-block';
+    const dir=mode==='prefix'?'with and without leading':'with and without trailing';
+    const srcLabelP = srcId ? ` in <strong>${document.getElementById(`${mode}-source-filter`).options[document.getElementById(`${mode}-source-filter`).selectedIndex].text}</strong>` : '';
+    ctxEl.innerHTML=`<strong>${pairs.length}</strong> pair${pairs.length!==1?'s':''} ${dir} <span class="gu">${token}</span>${srcLabelP}`;
+    pairs.forEach(pair=>{
+        const item=document.createElement('div'); item.className='pair-item';
+        item.innerHTML=mode==='prefix'?`<span class="pw">${pair.withWord}</span><span class="arr">↔</span><span class="pwo">${pair.withoutWord}</span>`:`<span class="pwo">${pair.withoutWord}</span><span class="arr">↔</span><span class="pw">${pair.withWord}</span>`;
+        item.addEventListener('click',()=>{
+            document.querySelectorAll(`#${mode}-pair-list .pair-item`).forEach(i=>i.classList.remove('selected'));
+            item.classList.add('selected');
+            buildDualPanel([{label:pair.withWord,id:pair.withId},{label:pair.withoutWord,id:pair.withoutId}],`${mode}-stats-body`,`${mode}-lines-body`);
+        });
+        listDiv.appendChild(item);
+    });
+}
+function clearPairTab(mode) {
+    document.getElementById(`${mode}-input`).value=''; document.getElementById(`${mode}-context`).innerHTML='';
+    document.getElementById(`${mode}-count`).style.display='none';
+    document.getElementById(`${mode}-pair-list`).innerHTML=`<p class="placeholder">Build a ${mode} and press Search.</p>`;
+    document.getElementById(`${mode}-stats-body`).innerHTML='<p class="placeholder">Click a pair to compare statistics.</p>';
+    document.getElementById(`${mode}-lines-body`).innerHTML='<p class="placeholder">Click a pair to see lines.</p>';
+    document.getElementById(`${mode}-input`).focus();
+}
+document.getElementById('prefix-search-btn').addEventListener('click',()=>runPairSearch('prefix'));
+document.getElementById('prefix-clear-btn').addEventListener('click',()=>clearPairTab('prefix'));
+document.getElementById('prefix-input').addEventListener('keydown',e=>{if(e.key==='Enter')runPairSearch('prefix');});
+document.getElementById('suffix-search-btn').addEventListener('click',()=>runPairSearch('suffix'));
+document.getElementById('suffix-clear-btn').addEventListener('click',()=>clearPairTab('suffix'));
+document.getElementById('suffix-input').addEventListener('keydown',e=>{if(e.key==='Enter')runPairSearch('suffix');});
+
+// ══════════════════════════════════════════════════════════════════
+// TAB 5 — PAGE BROWSER
+// ══════════════════════════════════════════════════════════════════
+let pageBrowserSourceId   = null;
+let pageBrowserCurrentPage = null;
+let pageBrowserMaxPage     = null;
+
+function populateSearchSourceFilters() {
+    const sources = dbExec(`SELECT id, name_english FROM sources ORDER BY name_english`);
+    ['full','infix','prefix','suffix'].forEach(mode => {
+        const sel = document.getElementById(`${mode}-source-filter`);
+        sources.forEach(([id, name]) => {
+            const opt = document.createElement('option');
+            opt.value = id; opt.textContent = name;
+            sel.appendChild(opt);
+        });
+    });
+}
+
+// ── buildSourceFilter: cached per source id ─────────────────────────
+// First call per source builds a temp table; subsequent calls reuse it.
+// With idx_wlm_word this is fast even on 820K rows.
+const _srcWordCache = new Map(); // sourceId → Set of word_ids (unused client-side, but tracks what's built)
+function buildSourceFilter(filterId, existingParams) {
+    if (!filterId) return { cte: '', where: '', params: existingParams };
+    // Use a permanent temp table keyed by source id so repeated
+    // searches on the same source skip the CTE re-scan entirely.
+    const tbl = `_sf_src_${parseInt(filterId)}`;
+    if (!_srcWordCache.has(filterId)) {
+        db.run(`CREATE TABLE IF NOT EXISTS ${tbl} AS
+            SELECT DISTINCT wlm.word_id
+            FROM word_line_mapping wlm
+            JOIN lines l    ON wlm.line_id  = l.id
+            JOIN shabads sh ON l.shabad_id  = sh.id
+            WHERE sh.source_id = ${parseInt(filterId)}`);
+        _srcWordCache.set(filterId, true);
+    }
+    return {
+        cte:   '',
+        where: `AND EXISTS (SELECT 1 FROM ${tbl} WHERE word_id = w.word_id)`,
+        params: Object.assign({}, existingParams)
+    };
+}
+
+function populateSourceDropdown() {
+    const sel = document.getElementById('page-source-select');
+    dbExec(`SELECT id, name_english, length FROM sources ORDER BY name_english`).forEach(([id,name,len])=>{
+        const opt=document.createElement('option'); opt.value=id; opt.textContent=`${name} (${len} pages)`; opt.dataset.maxPage=len;
+        sel.appendChild(opt);
+    });
+}
+
+document.getElementById('page-source-select').addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    pageBrowserSourceId = this.value ? parseInt(this.value) : null;
+    pageBrowserMaxPage  = opt.dataset.maxPage ? parseInt(opt.dataset.maxPage) : null;
+    document.getElementById('page-number-input').max = pageBrowserMaxPage ?? '';
+    document.getElementById('page-number-input').value = '';
+    document.getElementById('page-context').innerHTML = pageBrowserMaxPage ? `Pages 1 – ${pageBrowserMaxPage}` : '';
+});
+
+function loadPage(pageNum) {
+    if (!db || !pageBrowserSourceId) return;
+    pageNum = parseInt(pageNum);
+    if (isNaN(pageNum) || pageNum < 1) return;
+    pageBrowserCurrentPage = pageNum;
+    document.getElementById('page-number-input').value = pageNum;
+
+    const lines = dbExec(`
+        SELECT l.id, l.gurmukhi, l.source_line, l.shabad_id,
+               w.name_english, sec.name_english
+        FROM lines l
+        JOIN shabads sh  ON l.shabad_id  =sh.id
+        JOIN sources  src ON sh.source_id =src.id
+        JOIN writers  w  ON sh.writer_id =w.id
+        JOIN sections sec ON sh.section_id=sec.id
+        WHERE src.id=$srcId AND l.source_page=$page
+        ORDER BY l.order_id
+    `, { $srcId: pageBrowserSourceId, $page: pageNum });
+
+    const body = document.getElementById('page-lines-body');
+    const ctx  = document.getElementById('page-context');
+    const title= document.getElementById('page-lines-title');
+
+    const srcName = document.getElementById('page-source-select').options[document.getElementById('page-source-select').selectedIndex].text.split(' (')[0];
+    title.textContent = `${srcName} — Page ${pageNum}`;
+    ctx.innerHTML = `Page <strong>${pageNum}</strong> of <strong>${pageBrowserMaxPage}</strong>`;
+
+    document.getElementById('page-prev-btn').disabled = (pageNum <= 1);
+    document.getElementById('page-next-btn').disabled = (pageBrowserMaxPage && pageNum >= pageBrowserMaxPage);
+
+    body.innerHTML = '';
+
+    if (!lines.length) {
+        body.innerHTML='<p class="placeholder">No lines found on this page.</p>'; return;
+    }
+
+    const byShabad = {};
+    const shabadMeta = {};
+    lines.forEach(([lId,gur,srcLine,shabId,writer,section])=>{
+        if(!byShabad[shabId]) { byShabad[shabId]=[]; shabadMeta[shabId]={writer,section}; }
+        byShabad[shabId].push({lId,gur,srcLine});
+    });
+
+    const writers     = [...new Set(lines.map(r=>r[4]))];
+    const sections    = [...new Set(lines.map(r=>r[5]))];
+    const shabadCount = Object.keys(byShabad).length;
+    const summaryBody = document.getElementById('page-summary-body');
+    summaryBody.innerHTML = '';
+    const grid = document.createElement('div'); grid.className='page-summary-grid';
+    [
+        ['Shabads',  shabadCount,      false],
+        ['Lines',    lines.length,     false],
+        ['Writers',  writers.join(', '),  true],
+        ['Sections', sections.join(', '), true],
+    ].forEach(([lbl,val,wide])=>{
+        const item=document.createElement('div');
+        item.className='page-summary-item'+(wide?' wide':'');
+        const l=document.createElement('span'); l.className='lbl'; l.textContent=lbl;
+        const v=document.createElement('span'); v.className='val'; v.textContent=val;
+        item.appendChild(l); item.appendChild(v); grid.appendChild(item);
+    });
+    summaryBody.appendChild(grid);
+    document.getElementById('page-word-body').innerHTML='<p class="placeholder">Click a line to see its words.</p>';
+    document.getElementById('page-word-count').style.display='none';
+    document.getElementById('page-word-stats').innerHTML='<p class="placeholder">Click a word to see statistics.</p>';
+
+    Object.entries(byShabad).forEach(([shabId,linesArr])=>{
+        const {writer,section}=shabadMeta[shabId];
+        const block = document.createElement('div'); block.className='shabad-block';
+        const header= document.createElement('div'); header.className='shabad-block-header';
+        header.innerHTML=`<span>${writer} &mdash; ${section}</span>`;
+        const ob=document.createElement('button'); ob.className='shabad-btn'; ob.textContent='📖 Full Shabad';
+        ob.addEventListener('click',()=>openShabadModal(null,shabId));
+        header.appendChild(ob); block.appendChild(header);
+
+        const tbl=document.createElement('table');
+        linesArr.forEach(({lId,gur,srcLine})=>{
+            const tr=document.createElement('tr'); tr.className='page-line-row';
+            const td=document.createElement('td');
+            td.style.cssText='display:flex;align-items:center;gap:.4rem;padding:.45rem .6rem';
+            const numSpan=document.createElement('span'); numSpan.className='line-num-cell'; numSpan.textContent=srcLine??'';
+            const txtSpan=document.createElement('span'); txtSpan.className='gurmukhi-text'; txtSpan.style.flex='1'; txtSpan.textContent=gur;
+            td.appendChild(numSpan); td.appendChild(txtSpan); tr.appendChild(td); tbl.appendChild(tr);
+            tr.addEventListener('click', ()=>{
+                document.querySelectorAll('.page-line-row.active').forEach(r=>r.classList.remove('active'));
+                tr.classList.add('active');
+                loadPageLineWords(lId);
+            });
+        });
+        block.appendChild(tbl);
+        body.appendChild(block);
+    });
+}
+
+function loadPageLineWords(lineId) {
+    const words = dbExec(`
+        SELECT DISTINCT w.word_id, w.unicode_word
+        FROM word_line_mapping wlm
+        JOIN words w ON wlm.word_id = w.word_id
+        WHERE wlm.line_id = $lid
+        ORDER BY w.unicode_word
+    `, {$lid: lineId});
+
+    const wordBody  = document.getElementById('page-word-body');
+    const cntEl     = document.getElementById('page-word-count');
+    const statsBody = document.getElementById('page-word-stats');
+    wordBody.innerHTML = '';
+    statsBody.innerHTML = '<p class="placeholder">Click a word to see statistics.</p>';
+
+    if (!words.length) {
+        wordBody.innerHTML='<p class="placeholder">No words mapped to this line.</p>';
+        cntEl.style.display='none'; return;
+    }
+    cntEl.textContent=words.length; cntEl.style.display='inline-block';
+
+    words.forEach(([wId,uniWord])=>{
+        const item=document.createElement('div'); item.className='bani-word-item';
+        item.textContent=uniWord;
+        item.addEventListener('click',()=>{
+            document.querySelectorAll('#page-word-body .bani-word-item').forEach(i=>i.classList.remove('selected'));
+            item.classList.add('selected');
+            try {
+                statsBody.innerHTML='';
+                statsBody.appendChild(buildStatsTable(getWordStats(wId)));
+            } catch(e) { statsBody.innerHTML='<p class="placeholder">Error loading statistics.</p>'; }
+        });
+        wordBody.appendChild(item);
+    });
+}
+
+document.getElementById('page-go-btn').addEventListener('click',()=>{
+    loadPage(document.getElementById('page-number-input').value);
+});
+document.getElementById('page-number-input').addEventListener('keydown',e=>{if(e.key==='Enter')loadPage(e.target.value);});
+document.getElementById('page-prev-btn').addEventListener('click',()=>{ if(pageBrowserCurrentPage>1) loadPage(pageBrowserCurrentPage-1); });
+document.getElementById('page-next-btn').addEventListener('click',()=>{ if(pageBrowserMaxPage && pageBrowserCurrentPage<pageBrowserMaxPage) loadPage(pageBrowserCurrentPage+1); });
+
+// ══════════════════════════════════════════════════════════════════
+// TAB 6 — BANI VIEWER
+// ══════════════════════════════════════════════════════════════════
+function populateBaniDropdown() {
+    const sel = document.getElementById('bani-select');
+    dbExec(`SELECT id, name_english, name_gurmukhi FROM banis ORDER BY name_english`).forEach(([id,eng,gur])=>{
+        const opt=document.createElement('option'); opt.value=id;
+        opt.textContent=`${eng}${gur?' — '+gur:''}`; sel.appendChild(opt);
+    });
+}
+
+document.getElementById('bani-load-btn').addEventListener('click',()=>{
+    const baniId=document.getElementById('bani-select').value;
+    if(!baniId||!db) return;
+    loadBani(parseInt(baniId));
+});
+
+function loadBani(baniId) {
+    const baniName = document.getElementById('bani-select').options[document.getElementById('bani-select').selectedIndex].text.split(' — ')[0];
+    document.getElementById('bani-reader-title').textContent = baniName;
+    document.getElementById('bani-context').innerHTML = `Loading <strong>${baniName}</strong>…`;
+    document.getElementById('bani-word-body').innerHTML='<p class="placeholder">Click a line to see its words.</p>';
+    document.getElementById('bani-stats-body').innerHTML='<p class="placeholder">Click a word to see its statistics.</p>';
+    document.getElementById('bani-word-count').style.display='none';
+
+    const lines = dbExec(`
+        SELECT l.id, l.gurmukhi, l.shabad_id, w.name_english, sec.name_english, bl.line_group
+        FROM bani_lines bl
+        JOIN lines l    ON bl.line_id    =l.id
+        JOIN shabads sh  ON l.shabad_id  =sh.id
+        JOIN writers w   ON sh.writer_id =w.id
+        JOIN sections sec ON sh.section_id=sec.id
+        WHERE bl.bani_id=$bid
+        ORDER BY bl.line_group, l.order_id
+    `, {$bid:baniId});
+
+    const body = document.getElementById('bani-reader-body');
+    body.innerHTML='';
+
+    if (!lines.length) {
+        body.innerHTML='<p class="placeholder">No lines found for this bani.</p>';
+        document.getElementById('bani-context').innerHTML='No lines found.'; return;
+    }
+
+    document.getElementById('bani-context').innerHTML=`<strong>${lines.length}</strong> lines in <strong>${baniName}</strong> — click any line to explore words`;
+
+    const byShabad={}, shabadOrder=[];
+    lines.forEach(([lId,gur,shabId,writer,section,lineGroup])=>{
+        if(!byShabad[shabId]){ byShabad[shabId]={writer,section,lines:[]}; shabadOrder.push(shabId); }
+        byShabad[shabId].lines.push({lId,gur});
+    });
+
+    const seenShabads=new Set();
+    const uniqueShabadOrder=shabadOrder.filter(sid=>{ if(seenShabads.has(sid)) return false; seenShabads.add(sid); return true; });
+
+    uniqueShabadOrder.forEach(shabId=>{
+        const {writer,section,lines:shabLines}=byShabad[shabId];
+        const group=document.createElement('div'); group.className='bani-shabad-group';
+        const hdr=document.createElement('div'); hdr.className='bani-shabad-header';
+        hdr.innerHTML=`<span>${writer} &mdash; ${section}</span>`;
+        const ob=document.createElement('button'); ob.className='shabad-btn'; ob.style.cssText='color:var(--white);border-color:rgba(255,255,255,.5)'; ob.textContent='📖 Full Shabad';
+        ob.addEventListener('click',e=>{e.stopPropagation();openShabadModal(null,shabId);});
+        hdr.appendChild(ob); group.appendChild(hdr);
+
+        const tbl=document.createElement('table'); tbl.className='bani-shabad-table';
+        shabLines.forEach(({lId,gur})=>{
+            const tr=document.createElement('tr'); tr.dataset.lineId=lId;
+            const td=document.createElement('td'); td.className='gurmukhi-text'; td.textContent=gur;
+            tr.appendChild(td);
+            tr.addEventListener('click',()=>{
+                document.querySelectorAll('.bani-shabad-table tr').forEach(r=>r.classList.remove('bani-line-active'));
+                tr.classList.add('bani-line-active');
+                loadBaniLineWords(lId);
+            });
+            tbl.appendChild(tr);
+        });
+        group.appendChild(tbl); body.appendChild(group);
+    });
+}
+
+function loadBaniLineWords(lineId) {
+    const words = dbExec(`
+        SELECT DISTINCT w.word_id, w.unicode_word
+        FROM word_line_mapping wlm
+        JOIN words w ON wlm.word_id=w.word_id
+        WHERE wlm.line_id=$lid
+        ORDER BY w.unicode_word
+    `,{$lid:lineId});
+
+    const wordBody=document.getElementById('bani-word-body');
+    const cntEl=document.getElementById('bani-word-count');
+    wordBody.innerHTML='';
+    document.getElementById('bani-stats-body').innerHTML='<p class="placeholder">Click a word to see its statistics.</p>';
+
+    if(!words.length){
+        wordBody.innerHTML='<p class="placeholder">No words mapped to this line.</p>';
+        cntEl.style.display='none'; return;
+    }
+    cntEl.textContent=words.length; cntEl.style.display='inline-block';
+
+    words.forEach(([wId,uniWord])=>{
+        const item=document.createElement('div'); item.className='bani-word-item';
+        item.textContent=uniWord;
+        item.addEventListener('click',()=>{
+            document.querySelectorAll('.bani-word-item').forEach(i=>i.classList.remove('selected'));
+            item.classList.add('selected');
+            const statsBody=document.getElementById('bani-stats-body');
+            try {
+                statsBody.innerHTML=''; statsBody.appendChild(buildStatsTable(getWordStats(wId)));
+            } catch(e) { console.error('bani word detail error:',e);
+                statsBody.innerHTML='<p class="placeholder">Error loading statistics.</p>'; }
+        });
+        wordBody.appendChild(item);
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// LINGUISTICS TAB — SETUP
+// ══════════════════════════════════════════════════════════════════
+
+function populateLinguisticsDropdowns() {
+    const sources = dbExec(`SELECT id, name_english FROM sources ORDER BY id`);
+    const writers = dbExec(`SELECT id, name_english FROM writers ORDER BY name_english`);
+    ['colloc','rhyme','freq'].forEach(mode => {
+        const sel = document.getElementById(`${mode}-source-filter`);
+        if (!sel) return;
+        sources.forEach(([id, name]) => {
+            const opt = document.createElement('option'); opt.value = id; opt.textContent = name; sel.appendChild(opt);
+        });
+    });
+    const wtrSel = document.getElementById('freq-writer-filter');
+    writers.forEach(([id, name]) => {
+        const opt = document.createElement('option'); opt.value = id; opt.textContent = name; wtrSel.appendChild(opt);
+    });
+}
+
+// Sub-tab switching
+document.querySelectorAll('.ling-subtab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.ling-subtab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.ling-subpanel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.sub).classList.add('active');
+    });
+});
+
+// Build rhyme keyboard (reuse existing VOWELS/CONSONANTS/MATRAS/OTHER)
+buildCharGrid(VOWELS,     'rhyme-grid-vowels',     'rhyme-input');
+buildCharGrid(CONSONANTS, 'rhyme-grid-consonants', 'rhyme-input');
+buildCharGrid(MATRAS,     'rhyme-grid-matras',     'rhyme-input', 'matra');
+buildCharGrid(OTHER,      'rhyme-grid-other',      'rhyme-input', 'matra');
+
+// ══════════════════════════════════════════════════════════════════
+// LINGUISTICS — COLLOCATIONS
+// ══════════════════════════════════════════════════════════════════
+
+function collocSearch() {
+    const q = document.getElementById('colloc-input').value.trim();
+    if (!q || !db) return;
+
+    // Resolve word_id (exact unicode match)
+    const wordRows = dbExec(`SELECT word_id FROM words WHERE unicode_word = $q LIMIT 1`, {$q: q});
+    const ctxEl  = document.getElementById('colloc-context');
+    const listDiv = document.getElementById('colloc-word-list');
+    const cntEl  = document.getElementById('colloc-count');
+    document.getElementById('colloc-stats-body').innerHTML = '<p class="placeholder">Click a word to see statistics.</p>';
+    document.getElementById('colloc-lines-body').innerHTML = '<p class="placeholder">Click a word to see lines.</p>';
+    listDiv.innerHTML = '';
+
+    if (!wordRows.length) {
+        ctxEl.innerHTML = `Word not found. Try Full Search to locate the exact spelling for <span class="gu">${q}</span>.`;
+        listDiv.innerHTML = '<p class="placeholder">Word not found in database.</p>';
+        cntEl.style.display = 'none'; 
+        return;
+    }
+    
+    const wordId = wordRows[0][0];
+    const level  = document.querySelector('input[name="colloc-level"]:checked').value;
+    const srcId  = document.getElementById('colloc-source-filter').value;
+
+    let rows;
+    if (level === 'line') {
+        const srcJoin  = srcId ? `JOIN lines l ON wlm1.line_id = l.id JOIN shabads sh ON l.shabad_id = sh.id` : '';
+        const srcWhere = srcId ? `AND sh.source_id = ${parseInt(srcId)}` : '';
+        
+        rows = dbExec(`
+            SELECT wlm2.word_id, w.unicode_word, COUNT(*) AS cnt
+            FROM word_line_mapping wlm1
+            ${srcJoin}
+            JOIN word_line_mapping wlm2 ON wlm1.line_id = wlm2.line_id
+            JOIN words w ON wlm2.word_id = w.word_id
+            WHERE wlm1.word_id = $wid 
+              AND wlm2.word_id != $wid
+              ${srcWhere}
+            GROUP BY wlm2.word_id 
+            ORDER BY cnt DESC LIMIT 100
+        `, {$wid: wordId});
+    } else {
+        const srcJoin  = srcId ? `JOIN shabads sh ON l1.shabad_id = sh.id` : '';
+        const srcWhere = srcId ? `AND sh.source_id = ${parseInt(srcId)}` : '';
+
+        rows = dbExec(`
+            SELECT wlm2.word_id, w.unicode_word, COUNT(*) AS cnt
+            FROM word_line_mapping wlm1
+            JOIN lines l1 ON wlm1.line_id = l1.id
+            ${srcJoin}
+            JOIN lines l2 ON l1.shabad_id = l2.shabad_id
+            JOIN word_line_mapping wlm2 ON l2.id = wlm2.line_id
+            JOIN words w ON wlm2.word_id = w.word_id
+            WHERE wlm1.word_id = $wid 
+              AND wlm2.word_id != $wid
+              ${srcWhere}
+            GROUP BY wlm2.word_id 
+            ORDER BY cnt DESC LIMIT 100
+        `, {$wid: wordId});
+    }
+
+    if (!rows.length) {
+        listDiv.innerHTML = '<p class="placeholder">No co-occurring words found.</p>';
+        cntEl.style.display = 'none';
+        ctxEl.innerHTML = `No collocations found for <span class="gu">${q}</span>.`; return;
+    }
+
+    cntEl.textContent = rows.length; cntEl.style.display = 'inline-block';
+    const levelLabel = level === 'line' ? 'same line' : 'same shabad';
+    const srcLabel   = srcId ? ` in <strong>${document.getElementById('colloc-source-filter').options[document.getElementById('colloc-source-filter').selectedIndex].text}</strong>` : '';
+    ctxEl.innerHTML  = `Top <strong>${rows.length}</strong> words appearing with <span class="gu">${q}</span> in the ${levelLabel}${srcLabel} — sorted by frequency`;
+
+    const maxCnt = rows[0][2];
+    rows.forEach(([wId, uni, cnt]) => {
+        const item = document.createElement('div'); item.className = 'colloc-item';
+        const wSpan = document.createElement('span'); wSpan.className = 'colloc-word'; wSpan.textContent = uni;
+        const barWrap = document.createElement('div'); barWrap.className = 'colloc-mini-bar';
+        const barFill = document.createElement('div'); barFill.className = 'colloc-mini-bar-fill';
+        barFill.style.width = `${Math.max(3, Math.round(cnt / maxCnt * 100))}%`;
+        barWrap.appendChild(barFill);
+        const cSpan = document.createElement('span'); cSpan.className = 'colloc-cnt'; cSpan.textContent = cnt;
+        item.appendChild(wSpan); item.appendChild(barWrap); item.appendChild(cSpan);
+        item.addEventListener('click', () => {
+            document.querySelectorAll('#colloc-word-list .colloc-item').forEach(i => i.classList.remove('selected'));
+            item.classList.add('selected');
+            try {
+                // Keep the stats as the clicked word's overall stats
+                document.getElementById('colloc-stats-body').innerHTML = '';
+                document.getElementById('colloc-stats-body').appendChild(buildStatsTable(getWordStats(wId)));
+                
+                // Use the new intersection function for the lines!
+                document.getElementById('colloc-lines-body').innerHTML = '';
+                document.getElementById('colloc-lines-body').appendChild(
+                    buildGroupedLinesEl(getCollocGroupedLines(wordId, wId, level, srcId))
+                );
+            } catch(e) { 
+                console.error("Detail Error:", e);
+                document.getElementById('colloc-stats-body').innerHTML = `<p class="placeholder" style="color:red">Error: ${e.message}</p>`;
+                document.getElementById('colloc-lines-body').innerHTML = '';
+            }
+        });
+        listDiv.appendChild(item);
+    });
+}
+
+function collocClear() {
+    document.getElementById('colloc-input').value = '';
+    document.getElementById('colloc-context').innerHTML = '';
+    document.getElementById('colloc-count').style.display = 'none';
+    document.getElementById('colloc-word-list').innerHTML = '<p class="placeholder">Search a word to find its collocations.</p>';
+    document.getElementById('colloc-stats-body').innerHTML = '<p class="placeholder">Click a word to see statistics.</p>';
+    document.getElementById('colloc-lines-body').innerHTML = '<p class="placeholder">Click a word to see lines.</p>';
+    document.getElementById('colloc-input').focus();
+}
+document.getElementById('colloc-search-btn').addEventListener('click', collocSearch);
+document.getElementById('colloc-clear-btn').addEventListener('click', collocClear);
+document.getElementById('colloc-input').addEventListener('keydown', e => { if(e.key==='Enter') collocSearch(); });
+
+// ══════════════════════════════════════════════════════════════════
+// LINGUISTICS — WORD FREQUENCY RANKING
+// ══════════════════════════════════════════════════════════════════
+
+function loadFrequency() {
+    if (!db) return;
+    const srcId  = document.getElementById('freq-source-filter').value;
+    const wtrId  = document.getElementById('freq-writer-filter').value;
+    const sort   = document.querySelector('input[name="freq-sort"]:checked').value;
+    const limit  = parseInt(document.getElementById('freq-limit').value);
+
+    const whereParts = [];
+    const params = {};
+    if (srcId) { whereParts.push('sh.source_id = $srcId'); params.$srcId = parseInt(srcId); }
+    if (wtrId) { whereParts.push('sh.writer_id = $wtrId'); params.$wtrId = parseInt(wtrId); }
+    const where = whereParts.length ? 'WHERE ' + whereParts.join(' AND ') : '';
+    const limitClause = limit > 0 ? `LIMIT ${limit}` : '';
+    const orderDir    = sort === 'desc' ? 'DESC' : 'ASC';
+
+    // ── Optimised frequency: using direct JOINs to avoid IN (...) limits ────
+    let rows;
+    if (srcId || wtrId) {
+        rows = dbExec(`
+            SELECT wlm.word_id, w.unicode_word, COUNT(*) AS freq
+            FROM word_line_mapping wlm
+            JOIN lines l ON wlm.line_id = l.id
+            JOIN shabads sh ON l.shabad_id = sh.id
+            JOIN words w ON wlm.word_id = w.word_id
+            ${where}
+            GROUP BY wlm.word_id
+            ORDER BY freq ${orderDir}, w.unicode_word
+            ${limitClause}
+        `, params);
+    } else {
+        // No filter — straight aggregate, fast with idx_wlm_word
+        rows = dbExec(`
+            SELECT wlm.word_id, w.unicode_word, COUNT(*) AS freq
+            FROM word_line_mapping wlm
+            JOIN words w ON wlm.word_id = w.word_id
+            GROUP BY wlm.word_id
+            ORDER BY freq ${orderDir}, w.unicode_word
+            ${limitClause}
+        `, {});
+    }
+
+    const wrap  = document.getElementById('freq-table-wrap');
+    const cntEl = document.getElementById('freq-count');
+    const ctxEl = document.getElementById('freq-context');
+    wrap.innerHTML = '';
+    document.getElementById('freq-stats-body').innerHTML = '<p class="placeholder">Click a word to see statistics.</p>';
+    document.getElementById('freq-lines-body').innerHTML = '<p class="placeholder">Click a word to see lines.</p>';
+
+    if (!rows.length) {
+        wrap.innerHTML = '<p class="placeholder">No results found.</p>';
+        cntEl.style.display = 'none'; ctxEl.innerHTML = 'No results.'; return;
+    }
+
+    cntEl.textContent = rows.length; cntEl.style.display = 'inline-block';
+    const maxFreq  = rows.reduce((m, r) => Math.max(m, r[2]), 0);
+    const srcName  = srcId  ? document.getElementById('freq-source-filter').options[document.getElementById('freq-source-filter').selectedIndex].text : 'All Sources';
+    const wtrName  = wtrId  ? document.getElementById('freq-writer-filter').options[document.getElementById('freq-writer-filter').selectedIndex].text  : 'All Writers';
+    const total    = rows.reduce((s, r) => s + r[2], 0);
+    ctxEl.innerHTML = `<strong>${rows.length}</strong> words · ${srcName} · ${wtrName} · ${total.toLocaleString()} total occurrences · ${sort==='desc'?'Most':'Least'} frequent first`;
+
+    const tbl = document.createElement('table'); tbl.className = 'freq-table';
+    tbl.innerHTML = `<thead><tr>
+        <th class="freq-rank">#</th>
+        <th>Word</th>
+        <th class="freq-count">Count</th>
+        <th class="freq-bar-cell">Relative frequency</th>
+    </tr></thead>`;
+    const tbody = document.createElement('tbody');
+    rows.forEach(([wId, uni, freq], i) => {
+        const pct = Math.max(2, Math.round(freq / maxFreq * 100));
+        const tr  = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="freq-rank">${i + 1}</td>
+            <td class="freq-word">${uni}</td>
+            <td class="freq-count">${freq.toLocaleString()}</td>
+            <td class="freq-bar-cell">
+                <div class="freq-bar-wrap"><div class="freq-bar-fill" style="width:${pct}%"></div></div>
+            </td>`;
+        tr.addEventListener('click', () => {
+            tbody.querySelectorAll('tr.selected').forEach(r => r.classList.remove('selected'));
+            tr.classList.add('selected');
+            try {
+                // 1. Load Statistics
+                document.getElementById('freq-stats-body').innerHTML = '';
+                document.getElementById('freq-stats-body').appendChild(buildStatsTable(getWordStats(wId)));
+                
+                // 2. Load Filtered Lines
+                document.getElementById('freq-lines-body').innerHTML = '';
+                document.getElementById('freq-lines-body').appendChild(
+                    buildGroupedLinesEl(getFilteredGroupedLines(wId, srcId, wtrId))
+                );
+            } catch(e) { 
+                console.error("Detail Error:", e);
+                document.getElementById('freq-stats-body').innerHTML = `<p class="placeholder" style="color:red">Error: ${e.message}</p>`;
+                document.getElementById('freq-lines-body').innerHTML = '';
+            }
+        });
+        tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    wrap.appendChild(tbl);
+}
+
+document.getElementById('freq-load-btn').addEventListener('click', loadFrequency);
+
+// ══════════════════════════════════════════════════════════════════
+// LINGUISTICS — RHYME FINDER
+// ══════════════════════════════════════════════════════════════════
+
+function rhymeSearch() {
+    const ending = document.getElementById('rhyme-input').value.trim();
+    if (!ending || !db) return;
+
+    const srcId    = document.getElementById('rhyme-source-filter').value;
+    const minLen   = Math.max(1, parseInt(document.getElementById('rhyme-min-len').value) || 2);
+    const groupLen = parseInt(document.getElementById('rhyme-group-len').value);
+
+    const sf = buildSourceFilter(srcId, { $pat: `%${ending}`, $minLen: minLen });
+    const rows = dbExec(`
+        ${sf.cte || ''}
+        SELECT DISTINCT w.word_id, w.unicode_word
+        FROM words w
+        WHERE w.unicode_word LIKE $pat
+          AND LENGTH(w.unicode_word) >= $minLen
+        ${sf.where}
+        ORDER BY w.unicode_word
+    `, sf.params);
+
+    const listDiv = document.getElementById('rhyme-word-list');
+    const cntEl   = document.getElementById('rhyme-count');
+    const ctxEl   = document.getElementById('rhyme-context');
+    listDiv.innerHTML = '';
+    document.getElementById('rhyme-stats-body').innerHTML = '<p class="placeholder">Click a word to see statistics.</p>';
+    document.getElementById('rhyme-lines-body').innerHTML = '<p class="placeholder">Click a word to see lines.</p>';
+
+    if (!rows.length) {
+        listDiv.innerHTML = '<p class="placeholder">No rhyming words found.</p>';
+        cntEl.style.display = 'none';
+        ctxEl.innerHTML = `No words ending in <span class="gu">${ending}</span>.`; return;
+    }
+
+    cntEl.textContent = rows.length; cntEl.style.display = 'inline-block';
+    const srcLabel = srcId ? ` in <strong>${document.getElementById('rhyme-source-filter').options[document.getElementById('rhyme-source-filter').selectedIndex].text}</strong>` : '';
+    ctxEl.innerHTML = `<strong>${rows.length}</strong> word${rows.length!==1?'s':''} ending in <span class="gu">${ending}</span>${srcLabel}`;
+
+    if (groupLen > 0) {
+        // Group by last N codepoints → sub-groups sorted by group size desc
+        const groups = new Map();
+        rows.forEach(([wId, uni]) => {
+            const chars = [...uni];
+            const key   = chars.length >= groupLen ? chars.slice(-groupLen).join('') : uni;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push({ wId, uni });
+        });
+        [...groups.entries()]
+            .sort((a, b) => b[1].length - a[1].length)
+            .forEach(([endKey, items]) => {
+                const hdr = document.createElement('div'); hdr.className = 'rhyme-group-hdr';
+                hdr.innerHTML = `<span class="rg-ending">—${endKey}</span><span class="rg-count">${items.length} word${items.length!==1?'s':''}</span>`;
+                listDiv.appendChild(hdr);
+                items.forEach(({ wId, uni }) => renderRhymeItem(listDiv, wId, uni, ending));
+            });
+    } else {
+        rows.forEach(([wId, uni]) => renderRhymeItem(listDiv, wId, uni, ending));
+    }
+}
+
+function renderRhymeItem(container, wId, uni, ending) {
+    const item   = document.createElement('div'); item.className = 'rhyme-word-item';
+    const endLen = [...ending].length;
+    const chars  = [...uni];
+    if (chars.length > endLen) {
+        const rootSpan = document.createElement('span'); rootSpan.className = 'rhyme-root';
+        rootSpan.textContent = chars.slice(0, -endLen).join('');
+        const endSpan  = document.createElement('span'); endSpan.className  = 'rhyme-end';
+        endSpan.textContent = chars.slice(-endLen).join('');
+        item.appendChild(rootSpan); item.appendChild(endSpan);
+    } else {
+        const endSpan = document.createElement('span'); endSpan.className = 'rhyme-end';
+        endSpan.textContent = uni;
+        item.appendChild(endSpan);
+    }
+    item.addEventListener('click', () => {
+        document.querySelectorAll('#rhyme-word-list .rhyme-word-item').forEach(i => i.classList.remove('selected'));
+        item.classList.add('selected');
+        try {
+            document.getElementById('rhyme-stats-body').innerHTML = '';
+            document.getElementById('rhyme-stats-body').appendChild(buildStatsTable(getWordStats(wId)));
+            document.getElementById('rhyme-lines-body').innerHTML = '';
+            document.getElementById('rhyme-lines-body').appendChild(buildGroupedLinesEl(getGroupedLines(wId)));
+        } catch(e) { document.getElementById('rhyme-stats-body').innerHTML = '<p class="placeholder">Error loading.</p>'; }
+    });
+    container.appendChild(item);
+}
+
+function rhymeClear() {
+    document.getElementById('rhyme-input').value = '';
+    document.getElementById('rhyme-context').innerHTML = '';
+    document.getElementById('rhyme-count').style.display = 'none';
+    document.getElementById('rhyme-word-list').innerHTML = '<p class="placeholder">Enter an ending and press Find Rhymes.</p>';
+    document.getElementById('rhyme-stats-body').innerHTML = '<p class="placeholder">Click a word to see statistics.</p>';
+    document.getElementById('rhyme-lines-body').innerHTML = '<p class="placeholder">Click a word to see lines.</p>';
+    document.getElementById('rhyme-input').focus();
+}
+document.getElementById('rhyme-search-btn').addEventListener('click', rhymeSearch);
+document.getElementById('rhyme-clear-btn').addEventListener('click', rhymeClear);
+document.getElementById('rhyme-input').addEventListener('keydown', e => { if(e.key==='Enter') rhymeSearch(); });
+
+</script>
+</body>
+</html>
