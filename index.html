@@ -335,6 +335,22 @@
     }
     .stat-chip.active .chip-cnt { background: rgba(255,255,255,0.22); }
 
+    /* ── BROWSE → SEARCH JUMP BUTTON ── */
+    .btn-jump-search {
+        display: block; width: 100%;
+        padding: 0.38rem 0.75rem;
+        margin-bottom: 0.6rem;
+        border: none; border-radius: 6px;
+        background: linear-gradient(135deg, #1a6fd4, #0f4fa0);
+        color: #fff;
+        font-family: 'Inter', sans-serif; font-size: 0.82rem; font-weight: 600;
+        cursor: pointer; text-align: left;
+        transition: opacity 0.12s, transform 0.08s;
+        box-shadow: 0 1px 6px rgba(15,79,160,0.22);
+    }
+    .btn-jump-search:hover  { opacity: 0.88; }
+    .btn-jump-search:active { transform: scale(0.98); }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 960px) {
         .results-grid, .browse-grid { flex-wrap: wrap; }
@@ -799,10 +815,12 @@ function getWordStats(wId) {
         JOIN lines l ON wlm.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id
         JOIN sections sec ON sh.section_id=sec.id WHERE wlm.word_id=$id GROUP BY sec.id
         UNION ALL
-        SELECT 'sub', sub.name_english, COUNT(*), sub.id
+        SELECT 'sub', sec.name_english || ' › ' || sub.name_english, COUNT(*), sub.id
         FROM word_line_mapping wlm
         JOIN lines l ON wlm.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id
-        JOIN subsections sub ON sh.subsection_id=sub.id WHERE wlm.word_id=$id AND sh.subsection_id IS NOT NULL GROUP BY sub.id`, p);
+        JOIN subsections sub ON sh.subsection_id=sub.id
+        JOIN sections sec ON sub.section_id=sec.id
+        WHERE wlm.word_id=$id AND sh.subsection_id IS NOT NULL GROUP BY sub.id`, p);
 
     return {
         total:  r1[0], shabs: r1[1],
@@ -892,6 +910,7 @@ function getFilteredLinesByAttr(wId, attrType, attrId) {
         writer:     'sh.writer_id',
         section:    'sh.section_id',
         subsection: 'sh.subsection_id',
+        source:     'sh.source_id',
     };
     const col = colMap[attrType];
     if (!col) return getGroupedLines(wId);
@@ -974,7 +993,8 @@ function buildStatsTable(s, wId, linesEl) {
 
     addRow('Total Occurrences',     s.total);
     addRow('Shabads Containing',    s.shabs);
-    addRow('By Source', s.bySrc.map(r => `${r[0]}: ${r[1]}`).join('<br>') || '—');
+    addChipRow('By Source',
+        s.bySrc, 'source');
     addChipRow('By Writer',
         s.byWtr, 'writer');
     addChipRow('By Section',
@@ -1037,13 +1057,19 @@ function buildDualPanel(pairsArr) {
     sb.innerHTML = ''; lb.innerHTML = '';
     const ds = document.createElement('div'); ds.className = 'dual-grid';
     const dl = document.createElement('div'); dl.className = 'dual-grid';
+
     pairsArr.forEach(({ label, id }) => {
-        const sc = document.createElement('div'); sc.className = 'col';
-        const sh = document.createElement('h4'); sh.className = 'gurmukhi-uni'; sh.textContent = label;
-        sc.appendChild(sh); sc.appendChild(buildStatsTable(getWordStats(id), id, null)); ds.appendChild(sc);
+        // Build the lines container first so chips can reference it
         const lc = document.createElement('div'); lc.className = 'col';
         const lh = document.createElement('h4'); lh.className = 'gurmukhi-uni'; lh.textContent = label;
-        lc.appendChild(lh); lc.appendChild(buildGroupedLinesEl(getGroupedLines(id))); dl.appendChild(lc);
+        const linesWrap = document.createElement('div');
+        linesWrap.appendChild(buildGroupedLinesEl(getGroupedLines(id)));
+        lc.appendChild(lh); lc.appendChild(linesWrap); dl.appendChild(lc);
+
+        // Stats column — chips are now wired to linesWrap above
+        const sc = document.createElement('div'); sc.className = 'col';
+        const sh = document.createElement('h4'); sh.className = 'gurmukhi-uni'; sh.textContent = label;
+        sc.appendChild(sh); sc.appendChild(buildStatsTable(getWordStats(id), id, linesWrap)); ds.appendChild(sc);
     });
     sb.appendChild(ds); lb.appendChild(dl);
 }
@@ -1609,13 +1635,38 @@ function extractLineWords(lineId) {
             item.classList.add('selected');
             const sb = document.getElementById('read-stats-body');
             try {
-                sb.innerHTML = ''; sb.appendChild(buildStatsTable(getWordStats(wId), wId, null));
+                sb.innerHTML = '';
+
+                // ── "Show all occurrences" jump button ──
+                const jumpBtn = document.createElement('button');
+                jumpBtn.className = 'btn btn-jump-search';
+                jumpBtn.innerHTML = '🔍 Show all occurrences in Search';
+                jumpBtn.onclick = () => jumpToSearch(uni);
+                sb.appendChild(jumpBtn);
+
+                sb.appendChild(buildStatsTable(getWordStats(wId), wId, null));
             } catch (e) {
                 sb.innerHTML = '<p style="color:#c0392b">Error loading statistics.</p>';
             }
         };
         wBody.appendChild(item);
     });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// BROWSE → SEARCH JUMP
+// ══════════════════════════════════════════════════════════════════
+function jumpToSearch(unicodeWord) {
+    // Switch to Search & Dictionary tab
+    document.querySelector('.tab-btn[data-tab="ctrl-search"]').click();
+    // Set exact-match mode and fill the word
+    const modeEl = document.getElementById('search-mode');
+    modeEl.value = 'exact';
+    toggleSearchOptions();
+    document.getElementById('search-input').value = unicodeWord;
+    executeSearch();
+    // Scroll the word into view at the top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function navigatePage(dir) {
