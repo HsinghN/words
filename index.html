@@ -762,16 +762,29 @@ function getWordStats(wId) {
         JOIN lines l ON wlm.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id
         JOIN writers w ON sh.writer_id=w.id WHERE wlm.word_id=$id GROUP BY w.id
         UNION ALL
-        SELECT DISTINCT 'bani', b.name_english, NULL
+        SELECT 'bani', b.name_english, NULL
         FROM word_line_mapping wlm
         JOIN bani_lines bl ON bl.line_id=wlm.line_id
-        JOIN banis b ON bl.bani_id=b.id WHERE wlm.word_id=$id`, p);
+        JOIN banis b ON bl.bani_id=b.id WHERE wlm.word_id=$id
+        GROUP BY b.id
+        UNION ALL
+        SELECT 'sec', sec.name_english, COUNT(*)
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id
+        JOIN sections sec ON sh.section_id=sec.id WHERE wlm.word_id=$id GROUP BY sec.id
+        UNION ALL
+        SELECT 'sub', sub.name_english, COUNT(*)
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id
+        JOIN subsections sub ON sh.subsection_id=sub.id WHERE wlm.word_id=$id AND sh.subsection_id IS NOT NULL GROUP BY sub.id`, p);
 
     return {
         total:  r1[0], shabs: r1[1],
         bySrc:  r2.filter(r => r[0]==='src') .map(r => [r[1], r[2]]),
         byWtr:  r2.filter(r => r[0]==='wtr') .map(r => [r[1], r[2]]),
-        byBani: r2.filter(r => r[0]==='bani').map(r => [r[1]])
+        byBani: r2.filter(r => r[0]==='bani').map(r => [r[1]]),
+        bySec:  r2.filter(r => r[0]==='sec') .map(r => [r[1], r[2]]),
+        bySub:  r2.filter(r => r[0]==='sub') .map(r => [r[1], r[2]])
     };
 }
 
@@ -839,9 +852,13 @@ function buildStatsTable(s) {
     [
         ['Total Occurrences', s.total],
         ['Shabads Containing Word', s.shabs],
-        ['By Source', s.bySrc.map(r  => `${r[0]}: ${r[1]}`).join('<br>') || '—'],
-        ['By Writer', s.byWtr.map(r  => `${r[0]}: ${r[1]}`).join('<br>') || '—'],
-        ['In Banis',  s.byBani.map(r => r[0]).join('<br>') || '—'],
+        ['By Source',     s.bySrc.map(r  => `${r[0]}: ${r[1]}`).join('<br>') || '—'],
+        ['By Writer',     s.byWtr.map(r  => `${r[0]}: ${r[1]}`).join('<br>') || '—'],
+        ['By Section',    s.bySec.map(r  => `${r[0]}: ${r[1]}`).join('<br>') || '—'],
+        ['By Subsection', s.bySub.length
+            ? s.bySub.map(r => `${r[0]}: ${r[1]}`).join('<br>')
+            : '<span style="color:var(--muted);font-style:italic">none</span>'],
+        ['In Banis',      s.byBani.map(r => r[0]).join('<br>') || '—'],
     ].forEach(([label, val]) => {
         const tr  = document.createElement('tr');
         const td1 = document.createElement('td'); td1.textContent = label;
@@ -1028,11 +1045,11 @@ function renderShabadModal(shabadId, highlightLineId) {
 // Prev / Next buttons
 document.getElementById('modal-prev-btn').addEventListener('click', function () {
     const sid = this.dataset.shabadId;
-    if (sid) renderShabadModal(parseInt(sid), null);
+    if (sid) renderShabadModal(sid, null);
 });
 document.getElementById('modal-next-btn').addEventListener('click', function () {
     const sid = this.dataset.shabadId;
-    if (sid) renderShabadModal(parseInt(sid), null);
+    if (sid) renderShabadModal(sid, null);
 });
 
 // Close modal
@@ -1125,8 +1142,8 @@ function executeSearch() {
 
     if (mode === 'exact') {
         rows = dbExec(`SELECT DISTINCT w.word_id, w.unicode_word FROM words w
-            WHERE w.unicode_word LIKE $pat ${srcFilter} ORDER BY w.unicode_word`,
-            { $pat: `${q}%` });
+            WHERE w.unicode_word = $pat ${srcFilter} ORDER BY w.unicode_word`,
+            { $pat: q });
     } else if (mode === 'infix') {
         rows = dbExec(`SELECT DISTINCT w.word_id, w.unicode_word FROM words w
             WHERE w.unicode_word LIKE $pat ${srcFilter} ORDER BY w.unicode_word`,
@@ -1321,7 +1338,7 @@ function executeAnalytics() {
         tbl.className = 'freq-table';
         tbl.innerHTML = `<thead><tr><th style="width:2.5rem">#</th><th>Word</th><th>Count</th><th style="width:90px">Frequency</th></tr></thead>`;
         const tbody  = document.createElement('tbody');
-        const maxCnt = rows[0][2];
+        const maxCnt = Math.max(...rows.map(r => r[2]));
         rows.forEach(([wId, uni, cnt], i) => {
             const pct = Math.max(2, Math.round(cnt / maxCnt * 100));
             const tr  = document.createElement('tr');
