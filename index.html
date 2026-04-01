@@ -309,6 +309,32 @@
     .shabad-table tr.highlighted td { background: #fff8e1; border-left: 3px solid var(--gold); }
     .shabad-table tr:hover td { background: var(--blue-light); cursor: pointer; }
 
+    /* ── STAT CHIPS ── */
+    .stat-chip-wrap { display: flex; flex-wrap: wrap; gap: 0.28rem; padding: 0.15rem 0; }
+    .stat-chip {
+        display: inline-flex; align-items: center; gap: 0.28rem;
+        padding: 0.2rem 0.55rem;
+        border: 1.5px solid var(--blue-mid);
+        border-radius: 999px;
+        background: var(--blue-light);
+        color: var(--blue-dark);
+        font-size: 0.76rem; font-weight: 600;
+        cursor: pointer;
+        transition: background 0.12s, border-color 0.12s, color 0.12s;
+        white-space: nowrap; line-height: 1.35;
+        font-family: 'Inter', sans-serif;
+    }
+    .stat-chip:hover   { background: var(--blue-mid); border-color: var(--blue); }
+    .stat-chip.active  { background: var(--blue); color: var(--white); border-color: var(--blue-dark); }
+    .stat-chip.no-interact { cursor: default; }
+    .stat-chip.no-interact:hover { background: var(--blue-light); border-color: var(--blue-mid); }
+    .chip-cnt {
+        font-size: 0.67rem; font-weight: 700;
+        background: rgba(0,0,0,0.10); padding: 0.02rem 0.32rem;
+        border-radius: 999px;
+    }
+    .stat-chip.active .chip-cnt { background: rgba(255,255,255,0.22); }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 960px) {
         .results-grid, .browse-grid { flex-wrap: wrap; }
@@ -752,39 +778,39 @@ function getWordStats(wId) {
         WHERE wlm.word_id = $id`, p)[0] || [0, 0];
 
     const r2 = dbExec(`
-        SELECT 'src', s.name_english, COUNT(*)
+        SELECT 'src', s.name_english, COUNT(*), s.id
         FROM word_line_mapping wlm
         JOIN lines l ON wlm.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id
         JOIN sources s ON sh.source_id=s.id WHERE wlm.word_id=$id GROUP BY s.id
         UNION ALL
-        SELECT 'wtr', w.name_english, COUNT(*)
+        SELECT 'wtr', w.name_english, COUNT(*), w.id
         FROM word_line_mapping wlm
         JOIN lines l ON wlm.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id
         JOIN writers w ON sh.writer_id=w.id WHERE wlm.word_id=$id GROUP BY w.id
         UNION ALL
-        SELECT 'bani', b.name_english, NULL
+        SELECT 'bani', b.name_english, NULL, b.id
         FROM word_line_mapping wlm
         JOIN bani_lines bl ON bl.line_id=wlm.line_id
         JOIN banis b ON bl.bani_id=b.id WHERE wlm.word_id=$id
         GROUP BY b.id
         UNION ALL
-        SELECT 'sec', sec.name_english, COUNT(*)
+        SELECT 'sec', sec.name_english, COUNT(*), sec.id
         FROM word_line_mapping wlm
         JOIN lines l ON wlm.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id
         JOIN sections sec ON sh.section_id=sec.id WHERE wlm.word_id=$id GROUP BY sec.id
         UNION ALL
-        SELECT 'sub', sub.name_english, COUNT(*)
+        SELECT 'sub', sub.name_english, COUNT(*), sub.id
         FROM word_line_mapping wlm
         JOIN lines l ON wlm.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id
         JOIN subsections sub ON sh.subsection_id=sub.id WHERE wlm.word_id=$id AND sh.subsection_id IS NOT NULL GROUP BY sub.id`, p);
 
     return {
         total:  r1[0], shabs: r1[1],
-        bySrc:  r2.filter(r => r[0]==='src') .map(r => [r[1], r[2]]),
-        byWtr:  r2.filter(r => r[0]==='wtr') .map(r => [r[1], r[2]]),
-        byBani: r2.filter(r => r[0]==='bani').map(r => [r[1]]),
-        bySec:  r2.filter(r => r[0]==='sec') .map(r => [r[1], r[2]]),
-        bySub:  r2.filter(r => r[0]==='sub') .map(r => [r[1], r[2]])
+        bySrc:  r2.filter(r=>r[0]==='src') .sort((a,b)=>a[3]-b[3]).map(r=>[r[1],r[2],r[3]]),
+        byWtr:  r2.filter(r=>r[0]==='wtr') .sort((a,b)=>a[3]-b[3]).map(r=>[r[1],r[2],r[3]]),
+        byBani: r2.filter(r=>r[0]==='bani').sort((a,b)=>a[3]-b[3]).map(r=>[r[1],r[3]]),
+        bySec:  r2.filter(r=>r[0]==='sec') .sort((a,b)=>a[3]-b[3]).map(r=>[r[1],r[2],r[3]]),
+        bySub:  r2.filter(r=>r[0]==='sub') .sort((a,b)=>a[3]-b[3]).map(r=>[r[1],r[2],r[3]])
     };
 }
 
@@ -845,28 +871,123 @@ function getCollocGroupedLines(targetId, coWordId, level, srcId) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// STAT-CHIP FILTERED LINES QUERY
+// ══════════════════════════════════════════════════════════════════
+function getFilteredLinesByAttr(wId, attrType, attrId) {
+    const base = `
+        SELECT s.name_english, w.name_english, l.gurmukhi, l.id
+        FROM word_line_mapping wlm
+        JOIN lines l    ON wlm.line_id  = l.id
+        JOIN shabads sh ON l.shabad_id  = sh.id
+        JOIN sources s  ON sh.source_id = s.id
+        JOIN writers w  ON sh.writer_id = w.id`;
+
+    if (attrType === 'bani') {
+        return dbExec(`${base}
+            JOIN bani_lines bl ON bl.line_id = wlm.line_id
+            WHERE wlm.word_id = $wid AND bl.bani_id = $fid
+            ORDER BY s.id`, { $wid: wId, $fid: attrId });
+    }
+    const colMap = {
+        writer:     'sh.writer_id',
+        section:    'sh.section_id',
+        subsection: 'sh.subsection_id',
+    };
+    const col = colMap[attrType];
+    if (!col) return getGroupedLines(wId);
+    return dbExec(`${base}
+        WHERE wlm.word_id = $wid AND ${col} = $fid
+        ORDER BY s.id`, { $wid: wId, $fid: attrId });
+}
+
+// ══════════════════════════════════════════════════════════════════
 // DOM BUILDERS
 // ══════════════════════════════════════════════════════════════════
-function buildStatsTable(s) {
+// buildStatsTable(s, wId, linesEl)
+//   s        – stats object from getWordStats
+//   wId      – word_id (needed for filtered queries on chip click)
+//   linesEl  – DOM element to update on chip click; null = read-only chips
+function buildStatsTable(s, wId, linesEl) {
     const t = document.createElement('table');
-    [
-        ['Total Occurrences', s.total],
-        ['Shabads Containing Word', s.shabs],
-        ['By Source',     s.bySrc.map(r  => `${r[0]}: ${r[1]}`).join('<br>') || '—'],
-        ['By Writer',     s.byWtr.map(r  => `${r[0]}: ${r[1]}`).join('<br>') || '—'],
-        ['By Section',    s.bySec.map(r  => `${r[0]}: ${r[1]}`).join('<br>') || '—'],
-        ['By Subsection', s.bySub.length
-            ? s.bySub.map(r => `${r[0]}: ${r[1]}`).join('<br>')
-            : '<span style="color:var(--muted);font-style:italic">none</span>'],
-        ['In Banis',      s.byBani.map(r => r[0]).join('<br>') || '—'],
-    ].forEach(([label, val]) => {
+
+    /* ── plain row (non-clickable) ── */
+    function addRow(label, htmlVal) {
         const tr  = document.createElement('tr');
         const td1 = document.createElement('td'); td1.textContent = label;
-        const td2 = document.createElement('td'); td2.innerHTML   = val;
+        const td2 = document.createElement('td'); td2.innerHTML   = String(htmlVal);
         tr.appendChild(td1); tr.appendChild(td2); t.appendChild(tr);
-    });
+    }
+
+    /* ── chip row (clickable when linesEl is set) ──
+       items: [ [name, count|null, id], … ]  – already sorted by id  */
+    function addChipRow(label, items, attrType, emptyMsg) {
+        if (!items.length) { addRow(label, emptyMsg || '—'); return; }
+        const tr  = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.textContent = label;
+        const td2 = document.createElement('td');
+        const wrap = document.createElement('div'); wrap.className = 'stat-chip-wrap';
+        const allChips = [];
+        const interactive = !!linesEl;
+
+        function makeChip(labelText, count, clickFn) {
+            const chip = document.createElement('button');
+            chip.className = 'stat-chip' + (interactive ? '' : ' no-interact');
+            const txt = document.createTextNode(labelText);
+            chip.appendChild(txt);
+            if (count != null) {
+                const cnt = document.createElement('span');
+                cnt.className = 'chip-cnt'; cnt.textContent = Number(count).toLocaleString();
+                chip.appendChild(cnt);
+            }
+            if (interactive) chip.onclick = clickFn;
+            allChips.push(chip);
+            wrap.appendChild(chip);
+            return chip;
+        }
+
+        /* "All" reset chip */
+        const allChip = makeChip('All', null, () => {
+            allChips.forEach(c => c.classList.remove('active'));
+            allChip.classList.add('active');
+            linesEl.innerHTML = '';
+            linesEl.appendChild(buildGroupedLinesEl(getGroupedLines(wId)));
+        });
+        allChip.classList.add('active');
+
+        items.forEach(([name, count, id]) => {
+            const chip = makeChip(name, count, () => {
+                allChips.forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                linesEl.innerHTML = '';
+                try {
+                    linesEl.appendChild(buildGroupedLinesEl(
+                        getFilteredLinesByAttr(wId, attrType, id)));
+                } catch(e) {
+                    linesEl.innerHTML = `<p style="color:#c0392b">Error: ${e.message}</p>`;
+                }
+            });
+        });
+
+        td2.appendChild(wrap);
+        tr.appendChild(td1); tr.appendChild(td2); t.appendChild(tr);
+    }
+
+    addRow('Total Occurrences',     s.total);
+    addRow('Shabads Containing',    s.shabs);
+    addRow('By Source', s.bySrc.map(r => `${r[0]}: ${r[1]}`).join('<br>') || '—');
+    addChipRow('By Writer',
+        s.byWtr, 'writer');
+    addChipRow('By Section',
+        s.bySec, 'section');
+    addChipRow('By Subsection',
+        s.bySub, 'subsection',
+        '<span style="color:var(--muted);font-style:italic">none</span>');
+    addChipRow('In Banis',
+        s.byBani.map(r => [r[0], null, r[1]]), 'bani');
+
     return t;
 }
+
 
 function buildGroupedLinesEl(rows) {
     if (!rows.length) {
@@ -919,7 +1040,7 @@ function buildDualPanel(pairsArr) {
     pairsArr.forEach(({ label, id }) => {
         const sc = document.createElement('div'); sc.className = 'col';
         const sh = document.createElement('h4'); sh.className = 'gurmukhi-uni'; sh.textContent = label;
-        sc.appendChild(sh); sc.appendChild(buildStatsTable(getWordStats(id))); ds.appendChild(sc);
+        sc.appendChild(sh); sc.appendChild(buildStatsTable(getWordStats(id), id, null)); ds.appendChild(sc);
         const lc = document.createElement('div'); lc.className = 'col';
         const lh = document.createElement('h4'); lh.className = 'gurmukhi-uni'; lh.textContent = label;
         lc.appendChild(lh); lc.appendChild(buildGroupedLinesEl(getGroupedLines(id))); dl.appendChild(lc);
@@ -935,7 +1056,7 @@ function renderDetails(wId, context = {}) {
     const lb = document.getElementById('lines-body');
     sb.innerHTML = ''; lb.innerHTML = '';
     try {
-        sb.appendChild(buildStatsTable(getWordStats(wId)));
+        sb.appendChild(buildStatsTable(getWordStats(wId), wId, lb));
         let lines;
         if      (context.type === 'colloc') lines = getCollocGroupedLines(context.targetId, wId, context.level, context.srcId);
         else if (context.type === 'freq')   lines = getFilteredGroupedLines(wId, context.srcId, context.wtrId);
@@ -1488,7 +1609,7 @@ function extractLineWords(lineId) {
             item.classList.add('selected');
             const sb = document.getElementById('read-stats-body');
             try {
-                sb.innerHTML = ''; sb.appendChild(buildStatsTable(getWordStats(wId)));
+                sb.innerHTML = ''; sb.appendChild(buildStatsTable(getWordStats(wId), wId, null));
             } catch (e) {
                 sb.innerHTML = '<p style="color:#c0392b">Error loading statistics.</p>';
             }
