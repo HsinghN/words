@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="pa">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gurbani Word Explorer</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Gurmukhi&family=Inter&display=swap" rel="stylesheet">
+
+<style>
+body { margin:0; font-family:Inter; background:#f5f7fb; }
+
+.header { background:#1a6fd4; color:white; padding:12px; text-align:center; }
+
+.main { display:flex; gap:10px; padding:10px; }
+
+.panel {
+    background:white; border-radius:8px;
+    padding:10px; box-shadow:0 2px 8px rgba(0,0,0,0.08);
+    overflow:auto;
+}
+
+.list { width:220px; }
+.stats { width:300px; }
+.lines { flex:1; }
+.dashboard { width:320px; }
+
+.search-bar {
+    display:flex; gap:8px;
+    justify-content:center; margin:10px;
+}
+
+input, select, button {
+    padding:6px; border-radius:5px; border:1px solid #ccc;
+}
+
+button { background:#1a6fd4; color:white; cursor:pointer; }
+
+.gurmukhi { font-family:'Noto Sans Gurmukhi'; }
+
+/* Fonts */
+@font-face {
+    font-family: 'GurbaniAkhar';
+    src: url('./fonts/ascii/OpenGurbaniAkhar/Regular/OpenGurbaniAkhar-Regular.woff2') format('woff2');
+    font-weight: normal;
+}
+@font-face {
+    font-family: 'GurbaniAkhar';
+    src: url('./fonts/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.woff2') format('woff2');
+    font-weight: bold;
+}
+@font-face {
+    font-family: 'GurbaniAkhar';
+    src: url('./fonts/ascii/OpenGurbaniAkhar/Black/OpenGurbaniAkhar-Black.woff2') format('woff2');
+    font-weight: 900;
+}
+
+.gurmukhi-line {
+    font-family:'GurbaniAkhar','Noto Sans Gurmukhi';
+    font-size:1.3rem;
+    line-height:1.6;
+}
+
+/* Line Type Formats */
+.line-type-normal { font-weight: normal; }
+.line-type-bold { font-weight: bold; color: #1a6fd4; } /* Rahao */
+.line-type-black { font-weight: 900; color: #d41a1a; } /* Manglacharan & Sirlekh */
+
+.item { padding:6px; cursor:pointer; border-bottom:1px solid #eee; }
+.item:hover { background:#eef4ff; }
+.item.active { background:#1a6fd4; color:white; }
+
+.line-block { margin-bottom:10px; }
+
+.meta {
+    font-size:0.75rem; color:#666;
+    display:flex; justify-content:space-between;
+}
+
+mark { background:#ffe58a; }
+
+table { width:100%; border-collapse:collapse; }
+td, th { padding:4px; border:1px solid #ddd; font-size:0.85rem; }
+
+/* Charts */
+.chart-box { margin-bottom:15px; }
+.bar {
+    height:10px;
+    background:#1a6fd4;
+    margin-bottom:5px;
+}
+
+/* Modal */
+#modal {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.6);
+    justify-content:center; align-items:center;
+}
+.modal-box {
+    background:white; padding:20px;
+    max-width:700px; max-height:80vh;
+    overflow:auto; border-radius:10px;
+}
+
+/* Active Filter Indicator */
+#active-filter-ui {
+    padding: 8px; background: #ffe58a; border-radius: 5px; 
+    margin: 0 10px 10px 10px; display: none; font-size: 0.9rem;
+    text-align: center;
+}
+#active-filter-ui button {
+    background: transparent; color: #000; border: 1px solid #000; 
+    font-weight: bold; padding: 2px 8px; margin-left: 10px;
+    border-radius: 4px;
+}
+#active-filter-ui button:hover {
+    background: rgba(0,0,0,0.1);
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="header">Gurbani Word Explorer</div>
+
+<div class="search-bar">
+    <select id="mode">
+        <option value="exact">Exact</option>
+        <option value="root">Root</option>
+    </select>
+    <input id="search" class="gurmukhi" placeholder="ਸ਼ਬਦ ਖੋਜੋ">
+    <button onclick="searchWord()">Search</button>
+</div>
+
+<div id="active-filter-ui">
+    Viewing filtered results for: <b id="filter-label"></b>
+    <button onclick="clearFilter()">✖ Clear Filter</button>
+</div>
+
+<div class="main">
+    <div class="panel list" id="list"></div>
+    <div class="panel stats" id="stats"></div>
+    <div class="panel lines" id="lines"></div>
+    <div class="panel dashboard" id="dashboard"></div>
+</div>
+
+<div id="modal">
+    <div class="modal-box">
+        <button onclick="closeModal()" style="margin-bottom:15px;">Close</button>
+        <div id="modal-content"></div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/sql-wasm.min.js"></script>
+
+<script>
+let db;
+let activeFilter = null;
+let currentWordId = null;
+let currentWord = "";
+
+
+/* INIT */
+(async () => {
+    const SQL = await initSqlJs({
+        locateFile: f => "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/" + f
+    });
+
+    const res = await fetch('./database.sqlite');
+    db = new SQL.Database(new Uint8Array(await res.arrayBuffer()));
+
+    // Create indexes to dramatically speed up searches and co-occurrence lookups
+    db.run("CREATE INDEX IF NOT EXISTS idx_words_unicode ON words(unicode_word)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_wlm_word ON word_line_mapping(word_id)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_wlm_line ON word_line_mapping(line_id)"); // <-- THIS IS THE MAGIC FIX
+})();
+/* MATRA & STRING UTILS */
+const MATRAS = ['ਾ','ਿ','ੀ','ੁ','ੂ','ੇ','ੈ','ੋ','ੌ','ੰ','ਂ','ੱ','੍','ਃ'];
+function stripMatras(str){ let s=str; MATRAS.forEach(m=>s=s.split(m).join('')); return s;}
+
+const cache=new Map();
+function getStripped(w){ if(!cache.has(w)) cache.set(w,stripMatras(w)); return cache.get(w); }
+
+function dbExec(q,p={}){ const r=db.exec(q,p); return r.length?r[0].values:[]; }
+
+/* FILTER UTILS */
+function clearFilter() {
+    activeFilter = null;
+    document.getElementById('active-filter-ui').style.display = 'none';
+    if(currentWordId) renderLines(currentWordId, currentWord);
+}
+
+function getLineClass(typeEnglish) {
+    if (!typeEnglish) return 'line-type-normal';
+    
+    const t = typeEnglish.toLowerCase();
+
+    // 1 & 2: Manglacharan & Sirlekh -> Black
+    if (t.includes('manglacharan') || t.includes('sirlekh')) {
+        return 'line-type-black';
+    }
+    
+    // 3: Rahao -> Bold
+    if (t.includes('rahao')) {
+        return 'line-type-bold';
+    }
+    
+    // 4: Pankti -> Normal
+    if (t.includes('pankti')) {
+        return 'line-type-normal';
+    }
+
+    return 'line-type-normal'; 
+}
+
+/* SMART HIGHLIGHTING */
+function highlight(line, searchWord) {
+    const mode = document.getElementById('mode').value;
+    if (mode === 'exact') {
+        return line.split(searchWord).join("<mark>" + searchWord + "</mark>");
+    } else {
+        const strippedSearch = stripMatras(searchWord);
+        const words = line.split(' ');
+        return words.map(w => {
+            if (stripMatras(w) === strippedSearch) return "<mark>" + w + "</mark>";
+            return w;
+        }).join(' ');
+    }
+}
+
+/* SEARCH */
+function searchWord(){
+    const q=document.getElementById('search').value.trim();
+    const mode=document.getElementById('mode').value;
+    if(!q) return;
+
+    let rows;
+
+    if(mode==='exact'){
+        rows=dbExec("SELECT word_id, unicode_word FROM words WHERE unicode_word=$q",{$q:q});
+    } else {
+        const stripped=stripMatras(q);
+        const all=dbExec("SELECT word_id, unicode_word FROM words");
+        rows=all.filter(r=>getStripped(r[1])===stripped);
+    }
+
+    renderList(rows);
+}
+
+/* LIST */
+function renderList(rows){
+    const list=document.getElementById('list');
+    list.innerHTML="";
+
+    rows.forEach(([id,word])=>{
+        const d=document.createElement('div');
+        d.className='item gurmukhi';
+        d.textContent=word;
+
+        d.onclick=()=>{
+            document.querySelectorAll('.item').forEach(i=>i.classList.remove('active'));
+            d.classList.add('active');
+            currentWordId=id;
+            currentWord=word;
+            clearFilter(); // Reset filter on new word selection
+            showDetails(id,word);
+        };
+
+        list.appendChild(d);
+    });
+}
+
+/* APPLY FILTER FROM STATS */
+function applyFilter(type,value){
+    activeFilter={type,value};
+    renderLines(currentWordId,currentWord);
+}
+
+/* STATS */
+function renderStats(wordId){
+    const stats = document.getElementById('stats');
+
+    const total = dbExec(`
+        SELECT COUNT(*), COUNT(DISTINCT l.shabad_id)
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id
+        WHERE wlm.word_id=$id
+    `, {$id:wordId})[0];
+
+    const sources = dbExec(`
+        SELECT s.name_english, COUNT(*)
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id
+        JOIN shabads sh ON l.shabad_id=sh.id
+        JOIN sources s ON sh.source_id=s.id
+        WHERE wlm.word_id=$id
+        GROUP BY s.id ORDER BY COUNT(*) DESC
+    `, {$id:wordId});
+
+    const writers = dbExec(`
+        SELECT w.name_english, COUNT(*)
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id
+        JOIN shabads sh ON l.shabad_id=sh.id
+        JOIN writers w ON sh.writer_id=w.id
+        WHERE wlm.word_id=$id
+        GROUP BY w.id ORDER BY COUNT(*) DESC
+        LIMIT 5
+    `, {$id:wordId});
+
+    const sections = dbExec(`
+        SELECT sec.name_english, COUNT(*)
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id
+        JOIN shabads sh ON l.shabad_id=sh.id
+        JOIN sections sec ON sh.section_id=sec.id
+        WHERE wlm.word_id=$id
+        GROUP BY sec.id ORDER BY COUNT(*) DESC
+    `, {$id:wordId});
+
+    const subsections = dbExec(`
+        SELECT sec.name_english || ' › ' || sub.name_english, COUNT(*)
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id
+        JOIN shabads sh ON l.shabad_id=sh.id
+        JOIN subsections sub ON sh.subsection_id=sub.id
+        JOIN sections sec ON sub.section_id=sec.id
+        WHERE wlm.word_id=$id AND sh.subsection_id IS NOT NULL
+        GROUP BY sub.id ORDER BY COUNT(*) DESC
+    `, {$id:wordId});
+
+    const banis = dbExec(`
+        SELECT b.name_english, COUNT(DISTINCT bl.line_id)
+        FROM word_line_mapping wlm
+        JOIN bani_lines bl ON bl.line_id = wlm.line_id
+        JOIN banis b ON bl.bani_id = b.id
+        WHERE wlm.word_id=$id
+        GROUP BY b.id ORDER BY COUNT(*) DESC
+    `, {$id:wordId});
+
+    function tableHelper(title, rows, type){
+        if (!rows.length) return "";
+        return `
+            <b>${title}</b>
+            <table>
+                ${rows.map(r => `
+                    <tr onclick="applyFilter('${type}','${r[0]}')" style="cursor:pointer" title="Click to filter">
+                        <td>${r[0]}</td>
+                        <td>${r[1]}</td>
+                    </tr>
+                `).join('')}
+            </table><br>
+        `;
+    }
+
+    stats.innerHTML = `
+        <b>Total:</b> ${total[0]}<br>
+        <b>Shabads:</b> ${total[1]}<br><br>
+
+        ${tableHelper("Sources", sources, "source")}
+        ${tableHelper("Top Writers", writers, "writer")}
+        ${tableHelper("Sections", sections, "section")}
+        ${tableHelper("Subsections", subsections, "subsection")}
+        ${tableHelper("Banis", banis, "bani")}
+    `;
+}
+
+/* LINES (With Limit & Line Types) */
+function renderLines(wordId, word) {
+    const lines = document.getElementById('lines');
+    
+    // Show/Hide Filter UI
+    const filterUi = document.getElementById('active-filter-ui');
+    if (activeFilter) {
+        document.getElementById('filter-label').innerText = activeFilter.type.toUpperCase() + ": " + activeFilter.value;
+        filterUi.style.display = 'block';
+    } else {
+        filterUi.style.display = 'none';
+    }
+
+    let where = "WHERE wlm.word_id=$id";
+    let params = {$id: wordId};
+
+    if (activeFilter) {
+        if (activeFilter.type === 'source') where += " AND s.name_english=$val";
+        if (activeFilter.type === 'writer') where += " AND w.name_english=$val";
+        if (activeFilter.type === 'section') where += " AND sec.name_english=$val";
+        if (activeFilter.type === 'subsection') where += " AND (sec.name_english || ' › ' || sub.name_english)=$val";
+        if (activeFilter.type === 'bani') where += " AND b.name_english=$val";
+        params.$val = activeFilter.value;
+    }
+
+    const rows = dbExec(`
+        SELECT s.name_english, w.name_english, l.gurmukhi, l.id, lt.name_english as line_type
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id
+        JOIN shabads sh ON l.shabad_id=sh.id
+        JOIN sources s ON sh.source_id=s.id
+        JOIN writers w ON sh.writer_id=w.id
+        LEFT JOIN sections sec ON sh.section_id=sec.id
+        LEFT JOIN subsections sub ON sh.subsection_id=sub.id
+        LEFT JOIN bani_lines bl ON bl.line_id=l.id
+        LEFT JOIN banis b ON bl.bani_id=b.id
+        LEFT JOIN line_types lt ON l.type_id = lt.id
+        ${where}
+        LIMIT 100 
+    `, params);
+
+    lines.innerHTML = rows.length === 100 ? "<div style='color:red; font-size:0.8rem; margin-bottom:10px;'>Showing first 100 results. Please apply filters to narrow down.</div>" : "";
+
+    rows.forEach(([src, writer, text, lid, lineType]) => {
+        const div = document.createElement('div');
+        div.className = 'line-block';
+        const cssClass = getLineClass(lineType);
+
+        div.innerHTML = `
+            <div class="meta">
+                ${src} | ${writer}
+                <button onclick="openShabad('${lid}')" title="Read Full Shabad">📖</button>
+            </div>
+            <div class="gurmukhi-line ${cssClass}">${highlight(text, word)}</div>
+        `;
+        lines.appendChild(div);
+    });
+}
+
+/* DASHBOARD (Fixed SQL Bug) */
+function renderBar(title,rows){
+    if(!rows.length) return "";
+    const max=rows[0][1];
+    return `<div class="chart-box"><b>${title}</b>
+        ${rows.map(r=>`
+            <div>${r[0]} <span style="font-size:0.75rem; color:#666;">(${r[1]})</span></div>
+            <div class="bar" style="width:${(r[1]/max)*100}%"></div>
+        `).join('')}
+    </div>`;
+}
+
+/* DASHBOARD */
+function renderDashboard(wordId, word) {
+    const dash = document.getElementById('dashboard');
+
+    // Show a quick loading state so the UI doesn't feel frozen for highly common words
+    dash.innerHTML = `<div class="chart-box"><b>Top Co-occurring Words</b><br><span style="color:#666; font-size:0.85rem;">Calculating...</span></div>`;
+
+    // Wrap in a setTimeout so the browser has a millisecond to render the "Calculating..." text
+    setTimeout(() => {
+        // Optimized query using IN instead of a self-join
+        const co = dbExec(`
+            SELECT w.unicode_word, COUNT(wlm.word_id) as freq
+            FROM word_line_mapping wlm
+            JOIN words w ON wlm.word_id = w.word_id
+            WHERE wlm.line_id IN (
+                SELECT line_id FROM word_line_mapping WHERE word_id = $id
+            ) 
+            AND wlm.word_id != $id
+            GROUP BY wlm.word_id 
+            ORDER BY freq DESC 
+            LIMIT 10
+        `, {$id: wordId});
+
+        dash.innerHTML = renderBar("Top Co-occurring Words", co);
+    }, 10);
+}
+/* MODAL (With Line Types) */
+function openShabad(lineId) {
+    const shabadId = dbExec("SELECT shabad_id FROM lines WHERE id=$id", {$id: lineId})[0][0];
+
+    const rows = dbExec(`
+        SELECT l.gurmukhi, lt.name_english 
+        FROM lines l
+        LEFT JOIN line_types lt ON l.type_id = lt.id
+        WHERE l.shabad_id=$id ORDER BY l.order_id
+    `, {$id: shabadId});
+
+    document.getElementById('modal-content').innerHTML =
+        rows.map(r => {
+            const cssClass = getLineClass(r[1]);
+            return `<div class="gurmukhi-line ${cssClass}">${r[0]}</div>`;
+        }).join('');
+
+    document.getElementById('modal').style.display = 'flex';
+}
+
+function closeModal(){
+    document.getElementById('modal').style.display='none';
+}
+
+/* MAIN HOOK */
+function showDetails(wordId,word){
+    renderStats(wordId);
+    renderLines(wordId,word);
+    renderDashboard(wordId,word);
+}
+</script>
+
+</body>
+</html>
