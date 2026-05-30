@@ -1158,7 +1158,7 @@ function updateKeyboardVisibility() {
 // DROPDOWN POPULATION
 // ══════════════════════════════════════════════════════════════════
 function populateDropdowns() {
-    const sources = dbExec(`SELECT id, name_english, length FROM sources ORDER BY name_english`);
+    const sources = dbExec(`SELECT id, name_english, length FROM sources ORDER BY ID`);
     const writers = dbExec(`SELECT id, name_english FROM writers ORDER BY name_english`);
 
     document.querySelectorAll('.dyn-source').forEach(sel => {
