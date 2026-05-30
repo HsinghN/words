@@ -1,0 +1,2407 @@
+<!DOCTYPE html>
+<html lang="pa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gurbani Word Search</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Gurmukhi:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    @font-face {
+        font-family: GurbaniAkhar;
+        src: url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.woff2') format('woff2'),
+             url('https://cdn.jsdelivr.net/gh/GurbaniNow/gurmukhi-fonts@2/ascii/OpenGurbaniAkhar/Bold/OpenGurbaniAkhar-Bold.woff') format('woff');
+    }
+
+    :root {
+        --blue:       #1a6fd4;
+        --blue-dark:  #0f4fa0;
+        --blue-light: #e8f0fe;
+        --blue-mid:   #b3d1ff;
+        --grey-bg:    #f0f2f7;
+        --grey-border:#dde1ec;
+        --text:       #1e2235;
+        --muted:      #7a849c;
+        --white:      #fff;
+        --shadow:     0 2px 12px rgba(0,0,0,0.08);
+        --shadow-lg:  0 8px 40px rgba(0,0,0,0.18);
+        --radius:     10px;
+        --gold:       #f0a500;
+        --green:      #28a745;
+    }
+
+    body {
+        font-family: 'Inter', Arial, sans-serif;
+        margin: 0; padding: 0;
+        background: var(--grey-bg);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    .header {
+        background: linear-gradient(135deg, #1a6fd4 0%, #0f4fa0 100%);
+        color: var(--white);
+        padding: 0.85rem 1.25rem 0;
+        text-align: center;
+        box-shadow: 0 2px 12px rgba(15,79,160,0.3);
+    }
+    .header h1 {
+        margin: 0 0 0.65rem;
+        font-size: 1.65rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+    }
+    .header h1 span { opacity: 0.7; font-weight: 400; font-size: 1rem; margin-left: 0.4rem; font-family: 'Noto Sans Gurmukhi', serif; }
+    .tab-nav { display: flex; justify-content: center; flex-wrap: wrap; gap: 0; }
+    .tab-btn {
+        padding: 0.5rem 1.15rem;
+        border: none;
+        background: rgba(255,255,255,0.12);
+        color: rgba(255,255,255,0.78);
+        font-family: 'Inter', sans-serif;
+        font-size: 0.84rem;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 7px 7px 0 0;
+        transition: background 0.15s, color 0.15s;
+        margin: 0 2px;
+    }
+    .tab-btn:hover  { background: rgba(255,255,255,0.22); color: var(--white); }
+    .tab-btn.active { background: var(--white); color: var(--blue); }
+
+    /* ── LAYOUT ── */
+    .main-content { flex: 1; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+    .control-panel { display: none; background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.85rem 1rem; }
+    .control-panel.active { display: block; }
+
+    /* ── CARDS ── */
+    .card {
+        background: var(--white);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 1rem;
+        overflow-y: auto;
+    }
+    .card h2, .card h3 {
+        margin: 0 0 0.7rem;
+        color: var(--blue);
+        border-bottom: 2px solid var(--blue-light);
+        padding-bottom: 0.4rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+    }
+
+    /* ── GRIDS ── */
+    .results-grid { display: none; gap: 1rem; flex: 1; min-height: 0; }
+    .results-grid.active { display: flex; }
+    /* FIX: col-list uses inner #list-body for scroll; prevent double-scrollbar */
+    .col-list  { width: 270px; flex-shrink: 0; max-height: 600px; display: flex; flex-direction: column; overflow: hidden; }
+    .col-stats { width: 340px; flex-shrink: 0; max-height: 600px; }
+    .col-lines { flex: 1; max-height: 600px; min-width: 0; }
+
+    .browse-grid { display: none; gap: 1rem; flex: 1; min-height: 0; }
+    .browse-grid.active { display: flex; }
+    .col-reader { flex: 1; max-height: 600px; min-width: 0; }
+    .col-words  { width: 220px; flex-shrink: 0; max-height: 600px; }
+    .col-rstats { width: 320px; flex-shrink: 0; max-height: 600px; }
+
+    /* ── CONTROLS ── */
+    .search-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.5rem;
+    }
+    .search-input {
+        padding: 0.42rem 0.65rem;
+        border: 2px solid #d0d7e8;
+        border-radius: 5px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.9rem;
+        background: #fafbff;
+        color: var(--text);
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .search-input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,111,212,0.12); }
+    .search-input.gu { font-family: 'Noto Sans Gurmukhi', serif; font-size: 1.1rem; width: 260px; }
+
+    .btn {
+        padding: 0.42rem 1rem;
+        border: none;
+        border-radius: 5px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.12s, transform 0.08s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary   { background: var(--blue); color: var(--white); }
+    .btn-primary:hover { background: var(--blue-dark); }
+    .btn-secondary { background: var(--white); color: #555; border: 2px solid #d0d7e8; }
+    .btn-secondary:hover { background: #f5f7ff; border-color: #aab; }
+
+    .context-msg {
+        text-align: center;
+        font-size: 0.82rem;
+        color: #666;
+        min-height: 1.1rem;
+        margin-top: 0.25rem;
+    }
+    .context-msg .gu    { font-family: 'Noto Sans Gurmukhi', serif; font-weight: 700; color: var(--blue); }
+    .context-msg strong { color: var(--text); }
+
+    /* ── KEYBOARD ── */
+    #universal-kb-wrapper { text-align: center; }
+    .kb-toggle-btn {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        padding: 0.28rem 0.7rem;
+        border: 2px solid var(--blue-mid);
+        border-radius: 5px;
+        background: var(--blue-light);
+        color: var(--blue-dark);
+        font-family: 'Inter', sans-serif;
+        font-size: 0.8rem; font-weight: 700;
+        cursor: pointer; margin-bottom: 0.4rem;
+        transition: background 0.12s;
+    }
+    .kb-toggle-btn:hover { background: var(--blue-mid); }
+    .kb-body { overflow: hidden; max-height: 0; transition: max-height 0.25s ease; background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0; margin-bottom: 0; }
+    .kb-body.open { max-height: 500px; padding: 0.6rem 0.5rem; margin-bottom: 0.5rem; }
+    .picker-group-label { display: inline-block; font-size: 0.67rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin: 0.3rem 0.4rem 0.1rem 0; vertical-align: middle; }
+    .char-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.18rem; max-width: 820px; margin: 0 auto 0.1rem; }
+    .ch-btn {
+        min-width: 2.1rem; height: 2.1rem; padding: 0 0.2rem;
+        border: 1.5px solid var(--blue);
+        background: var(--white); color: var(--blue);
+        font-family: 'Noto Sans Gurmukhi', serif; font-size: 1rem; font-weight: 600;
+        border-radius: 4px; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center;
+        transition: background 0.1s;
+    }
+    .ch-btn:hover { background: var(--blue-light); }
+    .ch-btn.matra { border-color: #6c9fd8; color: #3a78c9; }
+    .ch-btn.matra:hover { background: #ddeeff; }
+
+    /* ── LIST ITEMS ── */
+    #list-body { overflow-y: auto; flex: 1; margin-top: 0.4rem; }
+    .badge { display: inline-block; background: var(--blue); color: var(--white); font-size: 0.7rem; font-weight: 700; padding: 0.08rem 0.42rem; border-radius: 999px; margin-left: 0.3rem; vertical-align: middle; }
+    .word-item, .pair-item {
+        padding: 0.4rem 0.5rem;
+        border-bottom: 1px solid #f0f2f8;
+        border-radius: 5px;
+        cursor: pointer;
+        font-family: 'Noto Sans Gurmukhi', serif;
+        font-size: 1.05rem;
+        transition: background 0.1s;
+    }
+    .word-item:hover, .pair-item:hover { background: var(--blue-light); }
+    .word-item.selected, .pair-item.selected { background: var(--blue); color: var(--white); }
+    /* FIX: transliteration subtitle inherits light color when word is selected */
+    .word-item.selected .word-sub { color: rgba(255,255,255,0.72); }
+    .pair-item { display: flex; align-items: center; gap: 0.4rem; }
+    .pair-item .arr { font-size: 0.72rem; opacity: 0.4; font-family: sans-serif; flex-shrink: 0; }
+    .placeholder { color: var(--muted); font-size: 0.86rem; padding: 0.5rem 0; }
+    /* FIX: transliteration subtitle inside word items */
+    .word-sub {
+        font-family: 'Inter', sans-serif;
+        font-size: 0.7rem;
+        color: var(--muted);
+        margin-top: 1px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-style: italic;
+    }
+
+    /* ── STATS TABLE ── */
+    table { width: 100%; border-collapse: collapse; }
+    table th, table td { padding: 0.4rem 0.5rem; border: 1px solid var(--grey-border); text-align: left; font-size: 0.86rem; word-wrap: break-word; }
+    table th { background: var(--blue); color: var(--white); font-weight: 600; }
+
+    /* ── GROUPED LINES ── */
+    /* FIX: prevent long Gurmukhi words from overflowing cards on mobile */
+    .gurmukhi-text { font-family: GurbaniAkhar, serif; font-size: 1rem; overflow-wrap: break-word; word-break: break-word; }
+    .gurmukhi-uni  { font-family: 'Noto Sans Gurmukhi', serif; overflow-wrap: break-word; word-break: break-word; }
+    .source-group  { margin-bottom: 0.85rem; }
+    .source-label  { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--white); background: var(--blue); padding: 0.17rem 0.5rem; border-radius: 3px; display: inline-block; margin-bottom: 0.28rem; }
+    .writer-group  { margin: 0.28rem 0 0.28rem 0.5rem; }
+    .writer-label  { font-size: 0.71rem; font-weight: 600; color: #555; border-left: 3px solid var(--blue-mid); padding-left: 0.4rem; margin-bottom: 0.18rem; display: block; }
+    .shabad-btn { background: none; border: 1px solid var(--blue-mid); border-radius: 3px; color: var(--blue); cursor: pointer; font-size: 0.71rem; padding: 0.1rem 0.28rem; white-space: nowrap; transition: background 0.1s; flex-shrink: 0; }
+    .shabad-btn:hover { background: var(--blue-light); }
+
+    /* ── DUAL PANEL ── */
+    .dual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .dual-grid .col h4 { font-family: 'Noto Sans Gurmukhi', serif; font-size: 1rem; margin: 0 0 0.4rem; color: var(--text); border-bottom: 1px solid var(--grey-border); padding-bottom: 0.25rem; }
+
+    /* ── FREQUENCY TABLE ── */
+    .freq-table th { position: sticky; top: 0; z-index: 1; background: var(--blue); }
+    .freq-table tbody tr:hover td { background: var(--blue-light); cursor: pointer; }
+    .freq-table tbody tr.selected td { background: var(--blue); color: var(--white); }
+    .freq-bar-wrap { background: #eef2ff; border-radius: 3px; height: 8px; overflow: hidden; width: 80px; }
+    .freq-bar-fill { height: 100%; background: var(--blue); border-radius: 3px; }
+
+    /* ── BROWSE READING VIEW ── */
+    .shabad-block { margin-bottom: 1rem; border: 1px solid var(--grey-border); border-radius: 7px; overflow: hidden; }
+    .shabad-block-header { background: var(--blue-light); padding: 0.38rem 0.65rem; font-size: 0.78rem; font-weight: 700; color: var(--blue-dark); display: flex; justify-content: space-between; align-items: center; }
+    .read-line-row { cursor: pointer; transition: background 0.1s; }
+    .read-line-row:hover td { background: var(--blue-light); }
+    .read-line-row.active td { background: #fff8e1; border-left: 3px solid var(--gold); }
+    .read-line-row td { padding: 0.45rem 0.65rem; border-bottom: 1px solid #f5f5f5; }
+
+    /* ── LOADING OVERLAY ── */
+    #loading-overlay {
+        position: fixed; inset: 0; z-index: 2000;
+        background: rgba(15, 30, 60, 0.7);
+        display: flex; align-items: center; justify-content: center;
+    }
+    #loading-overlay.hidden { display: none; }
+    #loading-box {
+        background: var(--white); border-radius: var(--radius);
+        box-shadow: var(--shadow-lg);
+        padding: 2rem 2.5rem; text-align: center; min-width: 240px;
+    }
+    #loading-spinner {
+        width: 42px; height: 42px; margin: 0 auto 1rem;
+        border: 4px solid var(--blue-mid);
+        border-top-color: var(--blue);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-text { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 0.25rem; }
+    #loading-sub  { font-size: 0.8rem; color: var(--muted); }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+        display: none; position: fixed; inset: 0;
+        background: rgba(0,0,0,0.55); z-index: 1000;
+        align-items: center; justify-content: center; padding: 1rem;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+        background: var(--white); border-radius: var(--radius);
+        box-shadow: var(--shadow-lg);
+        width: 100%; max-width: 780px; max-height: 90vh;
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+    .modal-header {
+        background: linear-gradient(135deg, #1a6fd4 0%, #0f4fa0 100%);
+        color: var(--white);
+        padding: 0.75rem 1rem;
+        display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+    }
+    .modal-header-text { flex: 1; min-width: 0; }
+    .modal-title { font-size: 1.05rem; font-weight: 700; margin: 0 0 0.15rem; }
+    .modal-meta  { font-size: 0.78rem; opacity: 0.88; line-height: 1.5; }
+    .modal-nav   { display: flex; gap: 0.35rem; align-items: center; }
+    .modal-body  { overflow-y: auto; padding: 1rem; flex: 1; }
+    .btn-nav {
+        background: rgba(255,255,255,0.15); color: var(--white);
+        border: 1px solid rgba(255,255,255,0.4); border-radius: 4px;
+        padding: 0.22rem 0.6rem; font-size: 0.84rem; cursor: pointer;
+        transition: background 0.12s;
+    }
+    .btn-nav:hover    { background: rgba(255,255,255,0.25); }
+    .btn-nav:disabled { opacity: 0.35; cursor: default; }
+    /* FIX: id="modal-close" is now set on the button */
+    .modal-close {
+        background: none; border: 2px solid rgba(255,255,255,0.45);
+        color: var(--white); border-radius: 4px; cursor: pointer;
+        font-size: 1rem; padding: 0.15rem 0.5rem; transition: background 0.12s;
+    }
+    .modal-close:hover { background: rgba(255,255,255,0.2); }
+
+    /* Shabad table inside modal */
+    .shabad-table { width: 100%; border-collapse: collapse; }
+    .shabad-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid #f0f0f0; font-family: GurbaniAkhar, serif; font-size: 1.05rem; vertical-align: top; }
+    .shabad-table td.line-num { font-family: 'Inter', sans-serif; font-size: 0.75rem; color: var(--muted); width: 2.5rem; text-align: right; padding-right: 0.75rem; white-space: nowrap; }
+    .shabad-table tr.highlighted td { background: #fff8e1; border-left: 3px solid var(--gold); }
+    .shabad-table tr:hover td { background: var(--blue-light); cursor: pointer; }
+
+    /* ── STAT CHIPS ── */
+    .stat-chip-wrap { display: flex; flex-wrap: wrap; gap: 0.28rem; padding: 0.15rem 0; }
+    .stat-chip {
+        display: inline-flex; align-items: center; gap: 0.28rem;
+        padding: 0.2rem 0.55rem;
+        border: 1.5px solid var(--blue-mid);
+        border-radius: 999px;
+        background: var(--blue-light);
+        color: var(--blue-dark);
+        font-size: 0.76rem; font-weight: 600;
+        cursor: pointer;
+        transition: background 0.12s, border-color 0.12s, color 0.12s;
+        white-space: nowrap; line-height: 1.35;
+        font-family: 'Inter', sans-serif;
+    }
+    .stat-chip:hover   { background: var(--blue-mid); border-color: var(--blue); }
+    .stat-chip.active  { background: var(--blue); color: var(--white); border-color: var(--blue-dark); }
+    .stat-chip.no-interact { cursor: default; }
+    .stat-chip.no-interact:hover { background: var(--blue-light); border-color: var(--blue-mid); }
+    .chip-cnt {
+        font-size: 0.67rem; font-weight: 700;
+        background: rgba(0,0,0,0.10); padding: 0.02rem 0.32rem;
+        border-radius: 999px;
+    }
+    .stat-chip.active .chip-cnt { background: rgba(255,255,255,0.22); }
+
+    /* ── BROWSE → SEARCH JUMP BUTTON ── */
+    .btn-jump-search {
+        display: block; width: 100%;
+        padding: 0.38rem 0.75rem;
+        margin-bottom: 0.6rem;
+        border: none; border-radius: 6px;
+        background: linear-gradient(135deg, #1a6fd4, #0f4fa0);
+        color: #fff;
+        font-family: 'Inter', sans-serif; font-size: 0.82rem; font-weight: 600;
+        cursor: pointer; text-align: left;
+        transition: opacity 0.12s, transform 0.08s;
+        box-shadow: 0 1px 6px rgba(15,79,160,0.22);
+    }
+    .btn-jump-search:hover  { opacity: 0.88; }
+    .btn-jump-search:active { transform: scale(0.98); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 960px) {
+        .results-grid, .browse-grid { flex-wrap: wrap; }
+        .col-list, .col-stats, .col-lines,
+        .col-reader, .col-words, .col-rstats { width: 100%; max-height: 280px; flex: none; }
+        .dual-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+        .header h1 { font-size: 1.25rem; }
+        .tab-btn   { padding: 0.4rem 0.6rem; font-size: 0.75rem; }
+    }
+    </style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══════════════════════════════════════════════════ -->
+<header class="header">
+    <h1>Gurbani Word Search <span>ਗੁਰਬਾਣੀ ਸ਼ਬਦ ਖੋਜ</span></h1>
+    <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="ctrl-search">🔍 Search &amp; Dictionary</button>
+        <button class="tab-btn"        data-tab="ctrl-analytics">📊 Analytics &amp; Linguistics</button>
+        <button class="tab-btn"        data-tab="ctrl-browse">📖 Read &amp; Browse</button>
+        <button class="tab-btn"        onclick="document.getElementById('help-modal').classList.add('open')" style="margin-left:0.5rem;border:1.5px solid rgba(255,255,255,0.45)">❓ Guide</button>
+    </nav>
+</header>
+
+<main class="main-content">
+
+    <!-- ── Universal Gurmukhi Keyboard ── -->
+    <div id="universal-kb-wrapper">
+        <button class="kb-toggle-btn" onclick="document.getElementById('master-kb').classList.toggle('open')">
+            ⌨ Toggle Gurmukhi Keyboard
+        </button>
+        <div class="kb-body" id="master-kb">
+            <span class="picker-group-label">Vowels</span>
+            <div class="char-grid" id="kb-vowels"></div>
+            <span class="picker-group-label">Consonants</span>
+            <div class="char-grid" id="kb-consonants"></div>
+            <span class="picker-group-label">Matras</span>
+            <div class="char-grid" id="kb-matras"></div>
+            <span class="picker-group-label">Other Signs</span>
+            <div class="char-grid" id="kb-other"></div>
+        </div>
+    </div>
+
+    <!-- ═══ CONTROL PANEL 1: Search & Dictionary ═══════════════ -->
+    <div id="ctrl-search" class="control-panel active">
+        <div class="search-row">
+            <select id="search-mode" class="search-input" onchange="toggleSearchOptions()">
+                <option value="exact">Exact Match (With Matras)</option>
+                <option value="root">Root Skeleton (Ignore Matras)</option>
+                <option value="infix">Contains Sequence (Infix)</option>
+                <option value="translit">Transliteration (Latin)</option>
+                <option value="phrase">Phrase Search (Multi-Word)</option>
+                <option value="prefix">Prefix Pairs</option>
+                <option value="suffix">Suffix Pairs</option>
+                <option value="rhyme">Rhyme Finder (Ends With)</option>
+            </select>
+            <select id="search-source" class="search-input dyn-source">
+                <option value="">All Sources</option>
+            </select>
+            <span id="rhyme-opts" style="display:none; font-size:0.85rem; align-items:center; gap:0.4rem;">
+                Min Length:
+                <input type="number" id="rhyme-min" class="search-input" value="2" min="1" style="width:62px">
+                Group by last:
+                <select id="rhyme-group" class="search-input">
+                    <option value="0">None</option>
+                    <option value="1">1 char</option>
+                    <option value="2" selected>2 chars</option>
+                    <option value="3">3 chars</option>
+                </select>
+            </span>
+            <span id="phrase-opts" style="display:none; font-size:0.85rem; align-items:center; gap:0.4rem;">
+                Match:
+                <select id="phrase-mode" class="search-input">
+                    <option value="consecutive">Consecutive (exact order)</option>
+                    <option value="any-order">Any order (same line)</option>
+                </select>
+            </span>
+        </div>
+        <div class="search-row">
+            <input type="text" id="search-input" class="search-input gu main-text-input" placeholder="ਸ਼ਬਦ ਖੋਜੋ / Enter word or sequence…">
+            <button class="btn btn-primary"   onclick="executeSearch()">Search</button>
+            <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+        </div>
+        <div class="context-msg" id="search-context"></div>
+    </div>
+
+    <!-- ═══ CONTROL PANEL 2: Analytics & Linguistics ═══════════ -->
+    <div id="ctrl-analytics" class="control-panel">
+        <div class="search-row">
+            <select id="analytics-mode" class="search-input" onchange="toggleAnalyticsOptions()">
+                <option value="colloc">Collocations (Co-occurring Words)</option>
+                <option value="freq">Word Frequency Ranking</option>
+            </select>
+            <select id="analytics-source" class="search-input dyn-source">
+                <option value="">All Sources</option>
+            </select>
+            <select id="analytics-writer" class="search-input dyn-writer" style="display:none">
+                <option value="">All Writers</option>
+            </select>
+        </div>
+        <div class="search-row">
+            <div id="colloc-opts" style="display:inline-flex; align-items:center; gap:0.4rem;">
+                <input type="text" id="analytics-input" class="search-input gu main-text-input" placeholder="Target word…">
+                <select id="colloc-level" class="search-input">
+                    <option value="line">Same Line</option>
+                    <option value="shabad">Same Shabad</option>
+                </select>
+            </div>
+            <div id="freq-opts" style="display:none; align-items:center; gap:0.4rem;">
+                Limit:
+                <select id="freq-limit" class="search-input">
+                    <option value="50">Top 50</option>
+                    <option value="100" selected>Top 100</option>
+                    <option value="250">Top 250</option>
+                    <option value="500">Top 500</option>
+                    <option value="0">All</option>
+                </select>
+                Sort:
+                <select id="freq-sort" class="search-input">
+                    <option value="desc">Most Frequent</option>
+                    <option value="asc">Least Frequent</option>
+                </select>
+            </div>
+            <button class="btn btn-primary"   onclick="executeAnalytics()">Run</button>
+            <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+        </div>
+        <div class="context-msg" id="analytics-context"></div>
+    </div>
+
+    <!-- ═══ CONTROL PANEL 3: Read & Browse ══════════════════════ -->
+    <div id="ctrl-browse" class="control-panel">
+        <div class="search-row">
+            <select id="browse-mode" class="search-input" onchange="toggleBrowseOptions()">
+                <option value="page">Page Browser</option>
+                <option value="bani">Bani Viewer</option>
+            </select>
+        </div>
+        <div class="search-row" id="browse-page-opts">
+            <select id="browse-source" class="search-input dyn-source-pg">
+                <option value="">— Select Source —</option>
+            </select>
+            <input type="number" id="browse-page-num" class="search-input" placeholder="Page #" style="width:85px" min="1">
+            <button class="btn btn-primary"   onclick="executeBrowse()">Load</button>
+            <button class="btn btn-secondary" onclick="navigatePage(-1)">◀ Prev</button>
+            <button class="btn btn-secondary" onclick="navigatePage(1)">Next ▶</button>
+        </div>
+        <div class="search-row" id="browse-bani-opts" style="display:none">
+            <select id="browse-bani-select" class="search-input" style="min-width:260px">
+                <option value="">— Select a Bani —</option>
+            </select>
+            <button class="btn btn-primary" onclick="executeBrowse()">Load Bani</button>
+        </div>
+        <div class="context-msg" id="browse-context"></div>
+    </div>
+
+    <!-- ═══ RESULTS: 3-Column (Search / Analytics) ══════════════ -->
+    <div class="results-grid active" id="results-3col">
+        <div class="card col-list">
+            <h2 id="list-title">Results <span class="badge" id="list-count" style="display:none">0</span></h2>
+            <div id="list-body"><p class="placeholder">Select options above to begin.</p></div>
+        </div>
+        <div class="card col-stats">
+            <h3>Statistics</h3>
+            <div id="stats-body"><p class="placeholder">Click an item to view.</p></div>
+        </div>
+        <div class="card col-lines">
+            <h3>Lines <small style="font-size:.73rem;font-weight:400;color:var(--muted)">(click 📖 to open full shabad)</small></h3>
+            <div id="lines-body"><p class="placeholder">Click an item to view.</p></div>
+        </div>
+    </div>
+
+    <!-- ═══ RESULTS: Browse / Reading View ══════════════════════ -->
+    <div class="browse-grid" id="results-read">
+        <div class="card col-reader">
+            <h2 id="read-title">Document Text</h2>
+            <div id="read-body"><p class="placeholder">Select a page or bani above.</p></div>
+        </div>
+        <div class="card col-words">
+            <h3>Words in Line <span class="badge" id="read-count" style="display:none">0</span></h3>
+            <div id="read-words-body"><p class="placeholder">Click a line to extract words.</p></div>
+        </div>
+        <div class="card col-rstats">
+            <h3>Word Statistics</h3>
+            <div id="read-stats-body"><p class="placeholder">Click a word to view.</p></div>
+        </div>
+    </div>
+
+</main>
+
+<!-- ═══ LOADING OVERLAY ══════════════════════════════════════════ -->
+<div id="loading-overlay">
+    <div id="loading-box">
+        <div id="loading-spinner"></div>
+        <div id="loading-text">Loading SQL Engine…</div>
+        <div id="loading-sub">Fetching database, please wait</div>
+    </div>
+</div>
+
+<!-- ═══ SHABAD MODAL ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="shabad-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-header-text">
+                <div class="modal-title" id="modal-title">Full Shabad</div>
+                <div class="modal-meta"  id="modal-meta"></div>
+            </div>
+            <div class="modal-nav">
+                <button class="btn-nav" id="modal-prev-btn" disabled>◀ Prev</button>
+                <!-- Position now shows position in result set, not global sequence -->
+                <span id="modal-shabad-pos" style="font-size:0.78rem;opacity:0.75;white-space:nowrap;padding:0 0.3rem"></span>
+                <button class="btn-nav" id="modal-next-btn" disabled>Next ▶</button>
+            </div>
+            <!-- FIX: added id="modal-close" so the JS event listener actually attaches -->
+            <button class="modal-close" id="modal-close">✕</button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+    </div>
+</div>
+
+<!-- ═══ HELP / GUIDE MODAL ═══════════════════════════════════════ -->
+<style>
+.help-modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55); z-index: 1000;
+    align-items: center; justify-content: center; padding: 1rem;
+}
+.help-modal-overlay.open { display: flex; }
+.help-modal {
+    background: var(--white); border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    width: 100%; max-width: 820px; max-height: 90vh;
+    display: flex; flex-direction: column; overflow: hidden;
+}
+.help-modal-header {
+    background: linear-gradient(135deg, #1a6fd4 0%, #0f4fa0 100%);
+    color: var(--white); padding: 0.85rem 1.1rem;
+    display: flex; align-items: center; justify-content: space-between;
+}
+.help-modal-header h2 { margin: 0; font-size: 1.1rem; font-weight: 700; }
+.help-modal-header p  { margin: 0.18rem 0 0; font-size: 0.8rem; opacity: 0.8; }
+.help-tab-nav {
+    display: flex; gap: 0; border-bottom: 2px solid var(--grey-border);
+    background: #f8f9fc; overflow-x: auto; flex-shrink: 0;
+}
+.help-tab-btn {
+    padding: 0.55rem 1rem; border: none; background: none;
+    font-family: 'Inter', sans-serif; font-size: 0.82rem; font-weight: 600;
+    color: var(--muted); cursor: pointer; white-space: nowrap;
+    border-bottom: 2px solid transparent; margin-bottom: -2px;
+    transition: color 0.12s, border-color 0.12s;
+}
+.help-tab-btn:hover  { color: var(--text); }
+.help-tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+.help-modal-body { overflow-y: auto; padding: 1.1rem 1.25rem; flex: 1; }
+.help-panel { display: none; }
+.help-panel.active { display: block; }
+.help-section { margin-bottom: 1.4rem; }
+.help-section h3 {
+    font-size: 0.88rem; font-weight: 700; color: var(--blue);
+    margin: 0 0 0.6rem; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.help-mode-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.6rem;
+}
+.help-mode-card {
+    border: 1px solid var(--grey-border); border-radius: 7px;
+    padding: 0.65rem 0.8rem; background: #fafbff;
+}
+.help-mode-card .mode-name {
+    font-size: 0.82rem; font-weight: 700; color: var(--text); margin-bottom: 0.25rem;
+}
+.help-mode-card .mode-desc {
+    font-size: 0.78rem; color: var(--muted); line-height: 1.55; margin-bottom: 0.35rem;
+}
+.help-mode-card .mode-example {
+    font-size: 0.78rem; background: var(--blue-light); color: var(--blue-dark);
+    padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-block;
+    font-family: 'Noto Sans Gurmukhi', serif;
+}
+.help-mode-card .mode-example.latin { font-family: 'Inter', sans-serif; font-style: italic; }
+.help-tip {
+    display: flex; gap: 0.55rem; align-items: flex-start;
+    background: #fffbea; border: 1px solid #f0d080; border-radius: 6px;
+    padding: 0.55rem 0.7rem; margin-bottom: 0.5rem; font-size: 0.82rem; line-height: 1.55;
+}
+.help-tip .tip-icon { font-size: 1rem; flex-shrink: 0; margin-top: 0.05rem; }
+.help-steps { list-style: none; padding: 0; margin: 0; }
+.help-steps li {
+    display: flex; gap: 0.6rem; align-items: flex-start;
+    padding: 0.45rem 0; border-bottom: 1px solid #f0f2f8; font-size: 0.83rem; line-height: 1.55;
+}
+.help-steps li:last-child { border-bottom: none; }
+.step-num {
+    background: var(--blue); color: var(--white);
+    font-size: 0.67rem; font-weight: 700; width: 1.3rem; height: 1.3rem;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 0.1rem;
+}
+.help-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.4rem; }
+.help-table th { background: var(--blue); color: var(--white); padding: 0.4rem 0.6rem; text-align: left; }
+.help-table td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--grey-border); vertical-align: top; }
+.help-table tr:last-child td { border-bottom: none; }
+.help-table tr:nth-child(even) td { background: #f8f9fc; }
+.panel-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem; }
+.panel-col { border: 1px solid var(--grey-border); border-radius: 7px; padding: 0.65rem 0.8rem; }
+.panel-col .col-name { font-size: 0.78rem; font-weight: 700; color: var(--blue); margin-bottom: 0.3rem; }
+.panel-col .col-desc { font-size: 0.76rem; color: var(--muted); line-height: 1.55; }
+@media (max-width: 600px) {
+    .help-mode-grid { grid-template-columns: 1fr; }
+    .panel-cols { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="help-modal-overlay" id="help-modal">
+<div class="help-modal">
+    <div class="help-modal-header">
+        <div>
+            <h2>📖 Gurbani Word Search — User Guide</h2>
+            <p>ਗੁਰਬਾਣੀ ਸ਼ਬਦ ਖੋਜ ਵਰਤੋਂ ਗਾਈਡ</p>
+        </div>
+        <button class="modal-close" onclick="document.getElementById('help-modal').classList.remove('open')">✕</button>
+    </div>
+
+    <nav class="help-tab-nav">
+        <button class="help-tab-btn active" data-help="help-start">Getting Started</button>
+        <button class="help-tab-btn" data-help="help-search">Search &amp; Dictionary</button>
+        <button class="help-tab-btn" data-help="help-analytics">Analytics</button>
+        <button class="help-tab-btn" data-help="help-browse">Read &amp; Browse</button>
+        <button class="help-tab-btn" data-help="help-tips">Tips &amp; Shortcuts</button>
+    </nav>
+
+    <div class="help-modal-body">
+
+        <!-- ── GETTING STARTED ── -->
+        <div class="help-panel active" id="help-start">
+            <div class="help-section">
+                <h3>What this app does</h3>
+                <p style="font-size:0.85rem;color:var(--muted);line-height:1.65;margin:0 0 0.8rem">
+                    This app lets you search, analyse, and read Gurbani across multiple sources. Every word in the corpus is indexed — you can look up where any word appears, who wrote it, which section it belongs to, and what words surround it.
+                </p>
+                <div class="help-tip">
+                    <span class="tip-icon">💡</span>
+                    <span>The app runs entirely in your browser using a local copy of the database. No internet connection is needed after the first load.</span>
+                </div>
+            </div>
+
+            <div class="help-section">
+                <h3>Three main tabs</h3>
+                <div class="panel-cols">
+                    <div class="panel-col">
+                        <div class="col-name">🔍 Search &amp; Dictionary</div>
+                        <div class="col-desc">Look up individual words or multi-word phrases. Seven search modes cover everything from exact spelling to rhyme patterns.</div>
+                    </div>
+                    <div class="panel-col">
+                        <div class="col-name">📊 Analytics &amp; Linguistics</div>
+                        <div class="col-desc">Find which words appear together (collocations) and rank the most or least frequent words in the corpus or by writer.</div>
+                    </div>
+                    <div class="panel-col">
+                        <div class="col-name">📖 Read &amp; Browse</div>
+                        <div class="col-desc">Browse page by page through any source, or load a complete Bani. Click any line to extract and explore its individual words.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="help-section">
+                <h3>Three-panel layout (Search &amp; Analytics)</h3>
+                <div class="panel-cols">
+                    <div class="panel-col">
+                        <div class="col-name">Left — Results list</div>
+                        <div class="col-desc">Words or pairs matching your search. Click any item to load its details in the other two panels.</div>
+                    </div>
+                    <div class="panel-col">
+                        <div class="col-name">Middle — Statistics</div>
+                        <div class="col-desc">Occurrence counts broken down by source, writer, section, subsection, and Bani. Click any chip to filter the lines panel.</div>
+                    </div>
+                    <div class="panel-col">
+                        <div class="col-name">Right — Lines</div>
+                        <div class="col-desc">Every line containing the selected word. Click 📖 Shabad on any line to open the full shabad in a popup.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="help-section">
+                <h3>Gurmukhi keyboard</h3>
+                <ol class="help-steps">
+                    <li><span class="step-num">1</span>Click <strong>⌨ Toggle Gurmukhi Keyboard</strong> to expand it.</li>
+                    <li><span class="step-num">2</span>Click any character — it is appended to the active search input.</li>
+                    <li><span class="step-num">3</span>The keyboard hides automatically on tabs where it is not needed (Browse, Frequency mode).</li>
+                    <li><span class="step-num">4</span>You can also type directly using a hardware Gurmukhi keyboard layout.</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- ── SEARCH & DICTIONARY ── -->
+        <div class="help-panel" id="help-search">
+            <div class="help-section">
+                <h3>Search modes</h3>
+                <div class="help-mode-grid">
+                    <div class="help-mode-card">
+                        <div class="mode-name">Exact Match</div>
+                        <div class="mode-desc">Finds words that match character-for-character including all matras (vowel marks). The strictest search.</div>
+                        <span class="mode-example">ਗੁਰੂ</span>
+                    </div>
+                    <div class="help-mode-card">
+                        <div class="mode-name">Root Skeleton</div>
+                        <div class="mode-desc">Ignores all matras and finds every word sharing the same consonant skeleton. Useful for finding all forms of a root word.</div>
+                        <span class="mode-example">ਗਰ → ਗੁਰੂ, ਗੁਰਿ, ਗੁਰੁ…</span>
+                    </div>
+                    <div class="help-mode-card">
+                        <div class="mode-name">Contains Sequence</div>
+                        <div class="mode-desc">Finds any word containing the typed sequence anywhere inside it — beginning, middle, or end.</div>
+                        <span class="mode-example">ਨਾਮ → ਨਾਮੁ, ਨਾਮੈ, ਸਤਿਨਾਮੁ…</span>
+                    </div>
+                    <div class="help-mode-card">
+                        <div class="mode-name">Transliteration</div>
+                        <div class="mode-desc">Search using Latin script for users who do not have a Gurmukhi keyboard. Matches against the stored transliteration field.</div>
+                        <span class="mode-example latin">waheguru, gur prasad</span>
+                    </div>
+                    <div class="help-mode-card">
+                        <div class="mode-name">Phrase Search</div>
+                        <div class="mode-desc">Enter two or more words separated by spaces. Choose <em>Consecutive</em> for exact word-order matching, or <em>Any order</em> for all words on the same line.</div>
+                        <span class="mode-example">ਗੁਰ ਪ੍ਰਸਾਦਿ</span>
+                    </div>
+                    <div class="help-mode-card">
+                        <div class="mode-name">Prefix Pairs</div>
+                        <div class="mode-desc">Enter a prefix. The app pairs every word that starts with it against the same word without that prefix.</div>
+                        <span class="mode-example">ਸਤਿ → ਸਤਿਨਾਮੁ ↔ ਨਾਮੁ</span>
+                    </div>
+                    <div class="help-mode-card">
+                        <div class="mode-name">Suffix Pairs</div>
+                        <div class="mode-desc">Enter a suffix. The app pairs every word ending with it against the same word without that suffix.</div>
+                        <span class="mode-example">ਕਾਰਿ → ਉਪਕਾਰਿ ↔ ਉਪ</span>
+                    </div>
+                    <div class="help-mode-card">
+                        <div class="mode-name">Rhyme Finder</div>
+                        <div class="mode-desc">Enter an ending sequence. Finds all words that end with those characters. Group by last 1–3 characters to cluster rhyme families.</div>
+                        <span class="mode-example">ਾਸੁ → ਪ੍ਰਕਾਸੁ, ਨਿਵਾਸੁ…</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="help-section">
+                <h3>Source filter</h3>
+                <p style="font-size:0.83rem;color:var(--muted);line-height:1.6;margin:0 0 0.5rem">
+                    The <strong>All Sources</strong> dropdown appears next to the mode selector on every search. Selecting a source restricts all results and statistics to that source only.
+                </p>
+                <div class="help-tip">
+                    <span class="tip-icon">💡</span>
+                    <span>Selecting a source significantly speeds up searches on large corpora by limiting the word index that is scanned.</span>
+                </div>
+            </div>
+
+            <div class="help-section">
+                <h3>Statistics chips (middle panel)</h3>
+                <ol class="help-steps">
+                    <li><span class="step-num">1</span>After clicking a word, the middle panel shows clickable chips for By Source, By Writer, By Section, By Subsection, and In Banis.</li>
+                    <li><span class="step-num">2</span>Click any chip to filter the Lines panel to only that source / writer / section.</li>
+                    <li><span class="step-num">3</span>Click <strong>All</strong> to reset and show every occurrence again.</li>
+                </ol>
+            </div>
+
+            <div class="help-section">
+                <h3>Shabad modal</h3>
+                <ol class="help-steps">
+                    <li><span class="step-num">1</span>Click <strong>📖 Shabad</strong> on any line to open the full shabad in a popup. The matching line is highlighted in gold.</li>
+                    <li><span class="step-num">2</span>Use <strong>◀ Prev</strong> and <strong>Next ▶</strong> to navigate through all shabads in the current result set — not through the entire scripture.</li>
+                    <li><span class="step-num">3</span>Press <strong>Escape</strong> or click outside the modal to close it.</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- ── ANALYTICS ── -->
+        <div class="help-panel" id="help-analytics">
+            <div class="help-section">
+                <h3>Collocations — words that appear together</h3>
+                <ol class="help-steps">
+                    <li><span class="step-num">1</span>Select <strong>Collocations</strong> from the mode dropdown.</li>
+                    <li><span class="step-num">2</span>Type the target word exactly as it appears in the text (use Exact Match on the Search tab to confirm spelling first).</li>
+                    <li><span class="step-num">3</span>Choose <strong>Same Line</strong> to find words that appear on the same line, or <strong>Same Shabad</strong> for words that appear anywhere in the same shabad.</li>
+                    <li><span class="step-num">4</span>Click <strong>Run</strong>. The left panel lists the top 100 co-occurring words with frequency counts.</li>
+                    <li><span class="step-num">5</span>Click any co-occurring word to see all the lines where both words appear together.</li>
+                </ol>
+                <div class="help-tip">
+                    <span class="tip-icon">💡</span>
+                    <span><strong>Same Shabad</strong> is broader — it shows thematic partners. <strong>Same Line</strong> shows grammatical partners and direct pairings.</span>
+                </div>
+            </div>
+
+            <div class="help-section">
+                <h3>Word Frequency Ranking</h3>
+                <ol class="help-steps">
+                    <li><span class="step-num">1</span>Select <strong>Word Frequency Ranking</strong> from the mode dropdown.</li>
+                    <li><span class="step-num">2</span>Optionally filter by Source and / or Writer to rank vocabulary within a specific context.</li>
+                    <li><span class="step-num">3</span>Choose how many words to show (Top 50 → Top 500 → All) and whether to sort most or least frequent first.</li>
+                    <li><span class="step-num">4</span>Click <strong>Run</strong>. A ranked table appears with frequency bars.</li>
+                    <li><span class="step-num">5</span>Click any row to open the full statistics and occurrence lines for that word.</li>
+                </ol>
+                <div class="help-tip">
+                    <span class="tip-icon">💡</span>
+                    <span>Sort <strong>Least Frequent</strong> and select a writer to find rare or unique vocabulary — words used only once or twice by that author.</span>
+                </div>
+            </div>
+
+            <div class="help-section">
+                <h3>Source &amp; Writer filters in Analytics</h3>
+                <table class="help-table">
+                    <thead><tr><th>Combination</th><th>What it shows</th></tr></thead>
+                    <tbody>
+                        <tr><td>No filter</td><td>Corpus-wide results across all sources and writers</td></tr>
+                        <tr><td>Source only</td><td>Results restricted to that scripture or granth</td></tr>
+                        <tr><td>Writer only</td><td>All compositions by that writer, across all sources</td></tr>
+                        <tr><td>Source + Writer</td><td>That writer's compositions within that specific source</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── READ & BROWSE ── -->
+        <div class="help-panel" id="help-browse">
+            <div class="help-section">
+                <h3>Page Browser</h3>
+                <ol class="help-steps">
+                    <li><span class="step-num">1</span>Select <strong>Page Browser</strong> from the mode dropdown.</li>
+                    <li><span class="step-num">2</span>Choose a source from the dropdown (the total page count is shown in brackets).</li>
+                    <li><span class="step-num">3</span>Enter a page number and click <strong>Load</strong>, or press Enter.</li>
+                    <li><span class="step-num">4</span>Use <strong>◀ Prev</strong> and <strong>Next ▶</strong> to move page by page.</li>
+                </ol>
+            </div>
+
+            <div class="help-section">
+                <h3>Bani Viewer</h3>
+                <ol class="help-steps">
+                    <li><span class="step-num">1</span>Select <strong>Bani Viewer</strong> from the mode dropdown.</li>
+                    <li><span class="step-num">2</span>Choose a Bani from the dropdown.</li>
+                    <li><span class="step-num">3</span>Click <strong>Load Bani</strong>. All lines of the Bani are displayed in order, grouped by shabad.</li>
+                </ol>
+                <div class="help-tip">
+                    <span class="tip-icon">💡</span>
+                    <span>A Bani may draw lines from different pages and sections of a source. The Bani Viewer assembles them in the correct liturgical order.</span>
+                </div>
+            </div>
+
+            <div class="help-section">
+                <h3>Exploring words from a line</h3>
+                <ol class="help-steps">
+                    <li><span class="step-num">1</span>Click any line in the reading panel to highlight it and extract its words into the middle panel.</li>
+                    <li><span class="step-num">2</span>Click any word in the middle panel to see its full statistics in the right panel — total occurrences, breakdown by source and writer.</li>
+                    <li><span class="step-num">3</span>Click <strong>🔍 Show all occurrences in Search</strong> to jump to the Search tab with that word pre-loaded in Exact Match mode.</li>
+                </ol>
+            </div>
+
+            <div class="help-section">
+                <h3>Reading panel layout</h3>
+                <p style="font-size:0.83rem;color:var(--muted);line-height:1.6;margin:0 0 0.5rem">Lines are grouped into shabad blocks. Each block header shows the writer and section name. Click <strong>📖 Full Shabad</strong> in any block header to open that shabad in the popup modal. The modal's Prev / Next navigates through all shabads on the current page or Bani.</p>
+            </div>
+        </div>
+
+        <!-- ── TIPS ── -->
+        <div class="help-panel" id="help-tips">
+            <div class="help-section">
+                <h3>Workflow tips</h3>
+                <div class="help-tip">
+                    <span class="tip-icon">🔤</span>
+                    <span><strong>Not sure of the exact spelling?</strong> Start with Root Skeleton — it finds all matra variants of a word. Then click one to see its exact form, and use that for further searches.</span>
+                </div>
+                <div class="help-tip">
+                    <span class="tip-icon">📊</span>
+                    <span><strong>Studying a specific writer?</strong> Go to Analytics → Word Frequency, select the writer, and sort by Least Frequent to find vocabulary unique to their style.</span>
+                </div>
+                <div class="help-tip">
+                    <span class="tip-icon">🔗</span>
+                    <span><strong>Exploring a theme?</strong> Search for a key word, open its Collocations on Same Shabad level, then click through co-occurring words to map the thematic vocabulary around it.</span>
+                </div>
+                <div class="help-tip">
+                    <span class="tip-icon">📖</span>
+                    <span><strong>Reading and researching at the same time?</strong> Browse to a page, click a line, click a word, then click 🔍 Show all occurrences to jump to the search tab — the database stays loaded throughout.</span>
+                </div>
+                <div class="help-tip">
+                    <span class="tip-icon">🎵</span>
+                    <span><strong>Looking for rhyming patterns?</strong> Use Rhyme Finder with Group by last 2–3 characters to cluster words into rhyme families — useful for studying poetic structure and tuks.</span>
+                </div>
+            </div>
+
+            <div class="help-section">
+                <h3>Search mode quick-pick</h3>
+                <table class="help-table">
+                    <thead><tr><th>I want to…</th><th>Use this mode</th></tr></thead>
+                    <tbody>
+                        <tr><td>Find this exact word form</td><td>Exact Match</td></tr>
+                        <tr><td>Find all forms of a root word</td><td>Root Skeleton</td></tr>
+                        <tr><td>Find words containing a sequence</td><td>Contains Sequence</td></tr>
+                        <tr><td>Search without a Gurmukhi keyboard</td><td>Transliteration</td></tr>
+                        <tr><td>Find a specific phrase or line fragment</td><td>Phrase Search → Consecutive</td></tr>
+                        <tr><td>Find lines where multiple words appear together</td><td>Phrase Search → Any Order</td></tr>
+                        <tr><td>Find words with/without a prefix like ਸਤਿ</td><td>Prefix Pairs</td></tr>
+                        <tr><td>Find rhyming words for a tuk ending</td><td>Rhyme Finder</td></tr>
+                        <tr><td>Find what words surround a given word</td><td>Analytics → Collocations</td></tr>
+                        <tr><td>Rank vocabulary by frequency</td><td>Analytics → Word Frequency</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="help-section">
+                <h3>Keyboard shortcuts</h3>
+                <table class="help-table">
+                    <thead><tr><th>Key</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr><td><kbd style="background:#eee;border:1px solid #ccc;border-radius:3px;padding:0.1rem 0.4rem;font-size:0.8rem">Enter</kbd></td><td>Run search / load page (when input is focused)</td></tr>
+                        <tr><td><kbd style="background:#eee;border:1px solid #ccc;border-radius:3px;padding:0.1rem 0.4rem;font-size:0.8rem">Escape</kbd></td><td>Close any open modal</td></tr>
+                        <tr><td><kbd style="background:#eee;border:1px solid #ccc;border-radius:3px;padding:0.1rem 0.4rem;font-size:0.8rem">◀ / ▶</kbd></td><td>Navigate shabads inside the modal (click the nav buttons)</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="help-section">
+                <h3>Case sensitivity note</h3>
+                <p style="font-size:0.83rem;color:var(--muted);line-height:1.6;margin:0">
+                    All searches against Gurbani text are <strong>case-sensitive</strong>. In GurbaniAkhar encoding, uppercase letters represent distinct phonemes — for example <code>u</code> = ੁ (short oo) and <code>U</code> = ੂ (long oo), and <code>n</code> = ਨ versus <code>N</code> = ਣ. Searching for the wrong case will return no results. Use <strong>Root Skeleton</strong> mode if you are unsure of the exact matra form.
+                </p>
+            </div>
+        </div>
+
+    </div><!-- end help-modal-body -->
+</div><!-- end help-modal -->
+</div><!-- end help-modal-overlay -->
+
+<!-- ═══ SCRIPTS ═══════════════════════════════════════════════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/sql-wasm.min.js"></script>
+<script>
+'use strict';
+
+let db = null;
+let activeInputId = 'search-input';
+
+// FIX: track the ordered list of shabad IDs from the current result set for modal navigation
+let _modalShabadList = [];
+let _modalShabadIdx  = -1;
+
+// ══════════════════════════════════════════════════════════════════
+// BOOTSTRAP
+// ══════════════════════════════════════════════════════════════════
+(async () => {
+    const loadingText = document.getElementById('loading-text');
+    const loadingSub  = document.getElementById('loading-sub');
+    try {
+        loadingText.textContent = 'Loading SQL Engine…';
+        const SQL = await initSqlJs({
+            locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/${f}`
+        });
+
+        loadingText.textContent = 'Fetching database…';
+        loadingSub.textContent  = 'This may take a moment on first load';
+        const response = await fetch('./database.sqlite');
+        if (!response.ok) throw new Error(`HTTP ${response.status} — database.sqlite not found`);
+
+        db = new SQL.Database(new Uint8Array(await response.arrayBuffer()));
+
+        // Make LIKE case-sensitive for the whole session.
+        // Critical for GurbaniAkhar ASCII encoding where uppercase letters are
+        // distinct phonemes (e.g. u=ੁ vs U=ੂ, n=ਨ vs N=ਣ) — not case variants.
+        db.run(`PRAGMA case_sensitive_like = ON`);
+
+        loadingText.textContent = 'Building indexes…';
+        loadingSub.textContent  = 'One-time setup for fast searches';
+
+        [
+            'idx_wlm_word:word_line_mapping(word_id)',
+            'idx_wlm_line:word_line_mapping(line_id)',
+            'idx_wlm_pair:word_line_mapping(word_id, line_id)',
+            'idx_lines_shab:lines(shabad_id)',
+            'idx_shab_src:shabads(source_id)',
+            'idx_shab_wtr:shabads(writer_id)',
+            'idx_shab_ord:shabads(order_id)',
+            'idx_bl_bani:bani_lines(bani_id)',
+            'idx_bl_line:bani_lines(line_id)',
+        ].forEach(idx => {
+            const [name, cols] = idx.split(':');
+            // Non-unique indexes only — word_line_mapping may have duplicate pairs
+            // in existing data; uniqueness is enforced via COUNT(DISTINCT) in queries
+            db.run(`CREATE INDEX IF NOT EXISTS ${name} ON ${cols}`);
+        });
+
+        populateDropdowns();
+        buildKeyboard();
+
+        setTimeout(() => document.getElementById('loading-overlay').classList.add('hidden'), 200);
+        console.log('DB ready');
+    } catch (e) {
+        console.error('Boot Error:', e);
+        document.getElementById('loading-spinner').style.display = 'none';
+        loadingText.innerHTML = '<span style="color:#c0392b">Failed to load database</span>';
+        let msg = `<b>Error:</b> ${e.message}<br><br>Ensure <b>database.sqlite</b> is in the same folder as this HTML file.`;
+        if (window.location.protocol === 'file:') {
+            msg = '<b>Security Error:</b> Browsers block loading local files this way.<br><br>Run this folder via a local web server (e.g. VS Code "Live Server" or <code>python -m http.server</code>).';
+        }
+        const sub = document.createElement('div');
+        sub.style.cssText = 'font-size:.85rem;margin-top:.8rem;color:#555;line-height:1.6';
+        sub.innerHTML = msg;
+        document.getElementById('loading-box').appendChild(sub);
+    }
+})();
+
+// ══════════════════════════════════════════════════════════════════
+// DB UTILITY
+// ══════════════════════════════════════════════════════════════════
+function dbExec(sql, params) {
+    try {
+        const hasParams = params && Object.keys(params).length > 0;
+        const r = hasParams ? db.exec(sql, params) : db.exec(sql);
+        return r.length ? r[0].values : [];
+    } catch (e) {
+        console.error('SQL Error:', e.message, '\nQuery:', sql);
+        return [];
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.control-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+
+        const tabId = btn.dataset.tab;
+        document.getElementById(tabId).classList.add('active');
+
+        if (tabId === 'ctrl-search') {
+            showGrid('results-3col');
+        } else if (tabId === 'ctrl-analytics') {
+            showGrid('results-3col');
+            // FIX: sync activeInputId and keyboard visibility with current analytics mode
+            toggleAnalyticsOptions();
+        } else if (tabId === 'ctrl-browse') {
+            showGrid('results-read');
+        }
+        // FIX: centralised keyboard visibility handles all cases
+        updateKeyboardVisibility();
+    });
+});
+
+function showGrid(id) {
+    document.getElementById('results-3col').classList.remove('active');
+    document.getElementById('results-read').classList.remove('active');
+    document.getElementById(id).classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// KEYBOARD VISIBILITY — centralised
+// FIX: single function governs keyboard based on active tab + mode
+// ══════════════════════════════════════════════════════════════════
+function updateKeyboardVisibility() {
+    const kbWrapper = document.getElementById('universal-kb-wrapper');
+    const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+
+    if (activeTab === 'ctrl-browse') {
+        kbWrapper.style.display = 'none';
+        activeInputId = null;
+        return;
+    }
+    if (activeTab === 'ctrl-analytics') {
+        const mode = document.getElementById('analytics-mode').value;
+        if (mode === 'freq') {
+            // FIX: hide keyboard entirely when frequency mode is active (no text input)
+            kbWrapper.style.display = 'none';
+            activeInputId = null;
+        } else {
+            kbWrapper.style.display = 'block';
+            activeInputId = 'analytics-input';
+        }
+        return;
+    }
+    // ctrl-search tab
+    const searchMode = document.getElementById('search-mode').value;
+    if (searchMode === 'translit') {
+        // Transliteration mode uses Latin script — Gurmukhi keyboard not relevant
+        kbWrapper.style.display = 'none';
+        activeInputId = null;
+    } else {
+        kbWrapper.style.display = 'block';
+        activeInputId = 'search-input';
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DROPDOWN POPULATION
+// ══════════════════════════════════════════════════════════════════
+function populateDropdowns() {
+    const sources = dbExec(`SELECT id, name_english, length FROM sources ORDER BY name_english`);
+    const writers = dbExec(`SELECT id, name_english FROM writers ORDER BY name_english`);
+
+    document.querySelectorAll('.dyn-source').forEach(sel => {
+        sources.forEach(([id, name]) => sel.add(new Option(name, id)));
+    });
+    document.querySelectorAll('.dyn-source-pg').forEach(sel => {
+        sources.forEach(([id, name, len]) => sel.add(new Option(`${name} (${len} pages)`, id)));
+    });
+    document.querySelectorAll('.dyn-writer').forEach(sel => {
+        writers.forEach(([id, name]) => sel.add(new Option(name, id)));
+    });
+
+    dbExec(`SELECT id, name_english, name_gurmukhi FROM banis ORDER BY name_english`)
+        .forEach(([id, eng, gur]) => {
+            document.getElementById('browse-bani-select')
+                .add(new Option(`${eng}${gur ? ' — ' + gur : ''}`, id));
+        });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// GURMUKHI KEYBOARD
+// ══════════════════════════════════════════════════════════════════
+function buildKeyboard() {
+    const render = (chars, id, cls = '') => {
+        const grid = document.getElementById(id);
+        chars.forEach(c => {
+            const btn = document.createElement('button');
+            btn.className = 'ch-btn' + (cls ? ' ' + cls : '');
+            btn.textContent = c;
+            btn.onclick = () => {
+                if (activeInputId) {
+                    const inp = document.getElementById(activeInputId);
+                    inp.value += c;
+                    inp.focus();
+                }
+            };
+            grid.appendChild(btn);
+        });
+    };
+    render(['ਅ','ਆ','ਇ','ਈ','ਉ','ਊ','ਏ','ਐ','ਓ','ਔ'], 'kb-vowels');
+    render(['ਕ','ਖ','ਗ','ਘ','ਙ','ਚ','ਛ','ਜ','ਝ','ਞ','ਟ','ਠ','ਡ','ਢ','ਣ','ਤ','ਥ','ਦ','ਧ','ਨ','ਪ','ਫ','ਬ','ਭ','ਮ','ਯ','ਰ','ਲ','ਵ','ੜ','ਸ','ਹ'], 'kb-consonants');
+    render(['ਾ','ਿ','ੀ','ੁ','ੂ','ੇ','ੈ','ੋ','ੌ'], 'kb-matras', 'matra');
+    render(['ੰ','ਂ','ੱ','੍','ੲ','ੳ','ਃ'], 'kb-other', 'matra');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MATRA HELPERS
+// ══════════════════════════════════════════════════════════════════
+const MATRA_CHARS = ['ਾ','ਿ','ੀ','ੁ','ੂ','ੇ','ੈ','ੋ','ੌ','ੰ','ਂ','ੱ','੍','ਃ'];
+function stripMatras(str)    { return MATRA_CHARS.reduce((s, m) => s.split(m).join(''), str); }
+function stripMatrasSQL(col) { return MATRA_CHARS.reduce((acc, m) => `REPLACE(${acc},'${m}','')`, col); }
+
+// ══════════════════════════════════════════════════════════════════
+// SOURCE FILTER CACHE
+// FIX: accepts alias param — eliminates the fragile .replace() hack
+// ══════════════════════════════════════════════════════════════════
+const _srcCache = new Set();
+function getSourceFilter(srcId, alias = 'w') {
+    if (!srcId) return '';
+    const tbl = `_sf_src_${parseInt(srcId)}`;
+    if (!_srcCache.has(srcId)) {
+        db.run(`CREATE TABLE IF NOT EXISTS ${tbl} AS
+            SELECT DISTINCT wlm.word_id
+            FROM word_line_mapping wlm
+            JOIN lines l    ON wlm.line_id  = l.id
+            JOIN shabads sh ON l.shabad_id  = sh.id
+            WHERE sh.source_id = ${parseInt(srcId)}`);
+        _srcCache.add(srcId);
+    }
+    return `AND EXISTS (SELECT 1 FROM ${tbl} WHERE word_id = ${alias}.word_id)`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UI OPTION TOGGLES
+// ══════════════════════════════════════════════════════════════════
+function toggleSearchOptions() {
+    const mode = document.getElementById('search-mode').value;
+    const inp  = document.getElementById('search-input');
+    document.getElementById('rhyme-opts').style.display  = mode === 'rhyme'  ? 'inline-flex' : 'none';
+    document.getElementById('phrase-opts').style.display = mode === 'phrase' ? 'inline-flex' : 'none';
+
+    if (mode === 'translit') {
+        inp.classList.remove('gu');
+        inp.placeholder = 'Enter transliteration e.g. waheguru, gur prasad…';
+    } else if (mode === 'phrase') {
+        inp.classList.add('gu');
+        inp.placeholder = 'ਦੋ ਜਾਂ ਵੱਧ ਸ਼ਬਦ ਦਰਜ ਕਰੋ / Enter 2 or more words…';
+    } else {
+        inp.classList.add('gu');
+        inp.placeholder = 'ਸ਼ਬਦ ਖੋਜੋ / Enter word or sequence…';
+    }
+    // FIX: re-evaluate keyboard visibility whenever search mode changes
+    updateKeyboardVisibility();
+}
+
+function toggleAnalyticsOptions() {
+    const mode = document.getElementById('analytics-mode').value;
+    document.getElementById('colloc-opts').style.display  = mode === 'colloc' ? 'inline-flex' : 'none';
+    document.getElementById('freq-opts').style.display    = mode === 'freq'   ? 'flex'        : 'none';
+    document.getElementById('analytics-writer').style.display = mode === 'freq' ? 'inline-block' : 'none';
+    // FIX: keyboard is hidden in freq mode; updateKeyboardVisibility handles activeInputId too
+    updateKeyboardVisibility();
+}
+
+function toggleBrowseOptions() {
+    const mode = document.getElementById('browse-mode').value;
+    document.getElementById('browse-page-opts').style.display = mode === 'page' ? 'flex' : 'none';
+    document.getElementById('browse-bani-opts').style.display = mode === 'bani' ? 'flex' : 'none';
+}
+
+function clearAll() {
+    document.querySelectorAll('.main-text-input').forEach(i => i.value = '');
+    document.querySelectorAll('.context-msg').forEach(i => i.innerHTML = '');
+    document.getElementById('list-count').style.display = 'none';
+    document.getElementById('list-body').innerHTML  = '<p class="placeholder">Cleared.</p>';
+    document.getElementById('stats-body').innerHTML = '<p class="placeholder">Click an item to view.</p>';
+    document.getElementById('lines-body').innerHTML = '<p class="placeholder">Click an item to view.</p>';
+    _modalShabadList = [];
+    _modalShabadIdx  = -1;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// STATS & LINES QUERIES
+// FIX: all line queries now return shabad_id as 5th column (index 4)
+//      for modal result-set navigation
+// ══════════════════════════════════════════════════════════════════
+function getWordStats(wId) {
+    const p = { $id: wId };
+    const r1 = dbExec(`
+        SELECT COUNT(DISTINCT wlm.line_id), COUNT(DISTINCT l.shabad_id)
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id = l.id
+        WHERE wlm.word_id = $id`, p)[0] || [0, 0];
+
+    const r2 = dbExec(`
+        SELECT 'src', s.name_english, COUNT(DISTINCT wlm.line_id), s.id
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id
+        JOIN sources s ON sh.source_id=s.id WHERE wlm.word_id=$id GROUP BY s.id
+        UNION ALL
+        SELECT 'wtr', w.name_english, COUNT(DISTINCT wlm.line_id), w.id
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id
+        JOIN writers w ON sh.writer_id=w.id WHERE wlm.word_id=$id GROUP BY w.id
+        UNION ALL
+        SELECT 'bani', b.name_english, NULL, b.id
+        FROM word_line_mapping wlm
+        JOIN bani_lines bl ON bl.line_id=wlm.line_id
+        JOIN banis b ON bl.bani_id=b.id WHERE wlm.word_id=$id
+        GROUP BY b.id
+        UNION ALL
+        SELECT 'sec', sec.name_english, COUNT(DISTINCT wlm.line_id), sec.id
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id
+        JOIN sections sec ON sh.section_id=sec.id WHERE wlm.word_id=$id GROUP BY sec.id
+        UNION ALL
+        SELECT 'sub', sec.name_english || ' › ' || sub.name_english, COUNT(DISTINCT wlm.line_id), sub.id
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id
+        JOIN subsections sub ON sh.subsection_id=sub.id
+        JOIN sections sec ON sub.section_id=sec.id
+        WHERE wlm.word_id=$id AND sh.subsection_id IS NOT NULL GROUP BY sub.id`, p);
+
+    return {
+        total:  r1[0], shabs: r1[1],
+        bySrc:  r2.filter(r=>r[0]==='src') .sort((a,b)=>a[3]-b[3]).map(r=>[r[1],r[2],r[3]]),
+        byWtr:  r2.filter(r=>r[0]==='wtr') .sort((a,b)=>a[3]-b[3]).map(r=>[r[1],r[2],r[3]]),
+        byBani: r2.filter(r=>r[0]==='bani').sort((a,b)=>a[3]-b[3]).map(r=>[r[1],r[3]]),
+        bySec:  r2.filter(r=>r[0]==='sec') .sort((a,b)=>a[3]-b[3]).map(r=>[r[1],r[2],r[3]]),
+        bySub:  r2.filter(r=>r[0]==='sub') .sort((a,b)=>a[3]-b[3]).map(r=>[r[1],r[2],r[3]])
+    };
+}
+
+function getGroupedLines(wId) {
+    return dbExec(`
+        SELECT s.name_english, w.name_english, l.gurmukhi, l.id, l.shabad_id
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id
+        JOIN shabads sh ON l.shabad_id=sh.id
+        JOIN sources s ON sh.source_id=s.id
+        JOIN writers w ON sh.writer_id=w.id
+        WHERE wlm.word_id=$id ORDER BY s.id, w.name_english`, { $id: wId });
+}
+
+function getFilteredGroupedLines(wId, srcId, wtrId) {
+    const p = { $id: wId };
+    let wc = '';
+    if (srcId) { wc += ' AND sh.source_id=$srcId'; p.$srcId = srcId; }
+    if (wtrId) { wc += ' AND sh.writer_id=$wtrId'; p.$wtrId = wtrId; }
+    return dbExec(`
+        SELECT s.name_english, w.name_english, l.gurmukhi, l.id, l.shabad_id
+        FROM word_line_mapping wlm
+        JOIN lines l ON wlm.line_id=l.id
+        JOIN shabads sh ON l.shabad_id=sh.id
+        JOIN sources s ON sh.source_id=s.id
+        JOIN writers w ON sh.writer_id=w.id
+        WHERE wlm.word_id=$id ${wc} ORDER BY s.id`, p);
+}
+
+function getCollocGroupedLines(targetId, coWordId, level, srcId) {
+    const swc = srcId ? `AND sh.source_id=${parseInt(srcId)}` : '';
+    if (level === 'line') {
+        return dbExec(`
+            SELECT s.name_english, w.name_english, l.gurmukhi, l.id, l.shabad_id
+            FROM lines l
+            JOIN shabads sh ON l.shabad_id=sh.id
+            JOIN sources s  ON sh.source_id=s.id
+            JOIN writers w  ON sh.writer_id=w.id
+            JOIN word_line_mapping w1 ON l.id=w1.line_id
+            JOIN word_line_mapping w2 ON l.id=w2.line_id
+            WHERE w1.word_id=$w1 AND w2.word_id=$w2 ${swc}
+            ORDER BY s.id`, { $w1: targetId, $w2: coWordId });
+    } else {
+        return dbExec(`
+            SELECT DISTINCT s.name_english, w.name_english, l.gurmukhi, l.id, l.shabad_id
+            FROM lines l
+            JOIN shabads sh ON l.shabad_id=sh.id
+            JOIN sources s  ON sh.source_id=s.id
+            JOIN writers w  ON sh.writer_id=w.id
+            JOIN word_line_mapping w2 ON l.id=w2.line_id
+            WHERE w2.word_id=$w2 ${swc}
+              AND EXISTS (
+                  SELECT 1 FROM lines lA
+                  JOIN word_line_mapping w1 ON lA.id=w1.line_id
+                  WHERE lA.shabad_id=sh.id AND w1.word_id=$w1)
+            ORDER BY s.id`, { $w1: targetId, $w2: coWordId });
+    }
+}
+
+function getFilteredLinesByAttr(wId, attrType, attrId) {
+    const base = `
+        SELECT s.name_english, w.name_english, l.gurmukhi, l.id, l.shabad_id
+        FROM word_line_mapping wlm
+        JOIN lines l    ON wlm.line_id  = l.id
+        JOIN shabads sh ON l.shabad_id  = sh.id
+        JOIN sources s  ON sh.source_id = s.id
+        JOIN writers w  ON sh.writer_id = w.id`;
+
+    if (attrType === 'bani') {
+        return dbExec(`${base}
+            JOIN bani_lines bl ON bl.line_id = wlm.line_id
+            WHERE wlm.word_id = $wid AND bl.bani_id = $fid
+            ORDER BY s.id`, { $wid: wId, $fid: attrId });
+    }
+    const colMap = {
+        writer:     'sh.writer_id',
+        section:    'sh.section_id',
+        subsection: 'sh.subsection_id',
+        source:     'sh.source_id',
+    };
+    const col = colMap[attrType];
+    if (!col) return getGroupedLines(wId);
+    return dbExec(`${base}
+        WHERE wlm.word_id = $wid AND ${col} = $fid
+        ORDER BY s.id`, { $wid: wId, $fid: attrId });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DOM BUILDERS
+// ══════════════════════════════════════════════════════════════════
+function buildStatsTable(s, wId, linesEl) {
+    const t = document.createElement('table');
+
+    function addRow(label, htmlVal) {
+        const tr  = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.textContent = label;
+        const td2 = document.createElement('td'); td2.innerHTML   = String(htmlVal);
+        tr.appendChild(td1); tr.appendChild(td2); t.appendChild(tr);
+    }
+
+    function addChipRow(label, items, attrType, emptyMsg) {
+        if (!items.length) { addRow(label, emptyMsg || '—'); return; }
+        const tr  = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.textContent = label;
+        const td2 = document.createElement('td');
+        const wrap = document.createElement('div'); wrap.className = 'stat-chip-wrap';
+        const allChips = [];
+        const interactive = !!linesEl;
+
+        function makeChip(labelText, count, clickFn) {
+            const chip = document.createElement('button');
+            chip.className = 'stat-chip' + (interactive ? '' : ' no-interact');
+            const txt = document.createTextNode(labelText);
+            chip.appendChild(txt);
+            if (count != null) {
+                const cnt = document.createElement('span');
+                cnt.className = 'chip-cnt'; cnt.textContent = Number(count).toLocaleString();
+                chip.appendChild(cnt);
+            }
+            if (interactive) chip.onclick = clickFn;
+            allChips.push(chip);
+            wrap.appendChild(chip);
+            return chip;
+        }
+
+        const allChip = makeChip('All', null, () => {
+            allChips.forEach(c => c.classList.remove('active'));
+            allChip.classList.add('active');
+            linesEl.innerHTML = '';
+            linesEl.appendChild(buildGroupedLinesEl(getGroupedLines(wId)));
+        });
+        allChip.classList.add('active');
+
+        items.forEach(([name, count, id]) => {
+            const chip = makeChip(name, count, () => {
+                allChips.forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                linesEl.innerHTML = '';
+                try {
+                    linesEl.appendChild(buildGroupedLinesEl(
+                        getFilteredLinesByAttr(wId, attrType, id)));
+                } catch(e) {
+                    linesEl.innerHTML = `<p style="color:#c0392b">Error: ${e.message}</p>`;
+                }
+            });
+        });
+
+        td2.appendChild(wrap);
+        tr.appendChild(td1); tr.appendChild(td2); t.appendChild(tr);
+    }
+
+    addRow('Total Occurrences',  s.total);
+    addRow('Shabads Containing', s.shabs);
+    addChipRow('By Source',      s.bySrc, 'source');
+    addChipRow('By Writer',      s.byWtr, 'writer');
+    addChipRow('By Section',     s.bySec, 'section');
+    addChipRow('By Subsection',  s.bySub, 'subsection',
+        '<span style="color:var(--muted);font-style:italic">none</span>');
+    addChipRow('In Banis',
+        s.byBani.map(r => [r[0], null, r[1]]), 'bani');
+
+    return t;
+}
+
+// FIX: now reads shabad_id from row[4] and updates _modalShabadList
+//      so Prev/Next in modal navigates only through this result set
+function buildGroupedLinesEl(rows) {
+    if (!rows.length) {
+        const p = document.createElement('p');
+        p.className = 'placeholder'; p.textContent = 'No lines found.';
+        // Clear modal nav list when there are no results
+        _modalShabadList = [];
+        return p;
+    }
+
+    // Build ordered unique shabad list from this result set
+    const seenSh = new Set();
+    _modalShabadList = [];
+    rows.forEach(r => {
+        const sid = r[4];
+        if (sid != null && !seenSh.has(sid)) { seenSh.add(sid); _modalShabadList.push(sid); }
+    });
+    _modalShabadIdx = -1;
+
+    const wrap = document.createElement('div');
+    const dict = {};
+    rows.forEach(([src, wtr, line, lId]) => {
+        if (!dict[src])      dict[src]      = {};
+        if (!dict[src][wtr]) dict[src][wtr] = [];
+        dict[src][wtr].push({ line, lId });
+    });
+    for (const src in dict) {
+        const sg = document.createElement('div'); sg.className = 'source-group';
+        const sl = document.createElement('span'); sl.className = 'source-label'; sl.textContent = src;
+        sg.appendChild(sl);
+        for (const wtr in dict[src]) {
+            const wg = document.createElement('div'); wg.className = 'writer-group';
+            const wl = document.createElement('span'); wl.className = 'writer-label';
+            wl.textContent = `${wtr} (${dict[src][wtr].length})`;
+            wg.appendChild(wl);
+            const tbl = document.createElement('table');
+            dict[src][wtr].forEach(({ line, lId }) => {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.style.cssText = 'display:flex;align-items:center;gap:.35rem';
+                const sp = document.createElement('span');
+                sp.className = 'gurmukhi-text'; sp.style.flex = '1'; sp.textContent = line;
+                const nb = document.createElement('button');
+                nb.className = 'shabad-btn'; nb.textContent = '📖 Shabad';
+                nb.onclick = e => { e.stopPropagation(); openShabadModal(lId, 'line'); };
+                td.appendChild(sp); td.appendChild(nb);
+                tr.appendChild(td); tbl.appendChild(tr);
+            });
+            wg.appendChild(tbl); sg.appendChild(wg);
+        }
+        wrap.appendChild(sg);
+    }
+    return wrap;
+}
+
+function buildDualPanel(pairsArr) {
+    const sb = document.getElementById('stats-body');
+    const lb = document.getElementById('lines-body');
+    sb.innerHTML = ''; lb.innerHTML = '';
+    const ds = document.createElement('div'); ds.className = 'dual-grid';
+    const dl = document.createElement('div'); dl.className = 'dual-grid';
+
+    pairsArr.forEach(({ label, id }) => {
+        const lc = document.createElement('div'); lc.className = 'col';
+        const lh = document.createElement('h4'); lh.className = 'gurmukhi-uni'; lh.textContent = label;
+        const linesWrap = document.createElement('div');
+        linesWrap.appendChild(buildGroupedLinesEl(getGroupedLines(id)));
+        lc.appendChild(lh); lc.appendChild(linesWrap); dl.appendChild(lc);
+
+        const sc = document.createElement('div'); sc.className = 'col';
+        const sh = document.createElement('h4'); sh.className = 'gurmukhi-uni'; sh.textContent = label;
+        sc.appendChild(sh); sc.appendChild(buildStatsTable(getWordStats(id), id, linesWrap)); ds.appendChild(sc);
+    });
+    sb.appendChild(ds); lb.appendChild(dl);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CENTRALIZED RENDER DETAILS
+// ══════════════════════════════════════════════════════════════════
+function renderDetails(wId, context = {}) {
+    const sb = document.getElementById('stats-body');
+    const lb = document.getElementById('lines-body');
+    sb.innerHTML = ''; lb.innerHTML = '';
+    try {
+        sb.appendChild(buildStatsTable(getWordStats(wId), wId, lb));
+        let lines;
+        if      (context.type === 'colloc') lines = getCollocGroupedLines(context.targetId, wId, context.level, context.srcId);
+        else if (context.type === 'freq')   lines = getFilteredGroupedLines(wId, context.srcId, context.wtrId);
+        else                                lines = getGroupedLines(wId);
+        lb.appendChild(buildGroupedLinesEl(lines));
+    } catch (e) {
+        console.error('renderDetails error:', e);
+        sb.innerHTML = `<p style="color:#c0392b">Error loading details: ${e.message}</p>`;
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SHABAD MODAL — navigates through the current result set only
+// FIX: Prev/Next use _modalShabadList / _modalShabadIdx, not global order_id
+// ══════════════════════════════════════════════════════════════════
+function openShabadModal(id, type) {
+    if (!db) return;
+    let shabadId = id;
+    let highlightLineId = null;
+
+    if (type === 'line') {
+        const r = dbExec(`SELECT shabad_id FROM lines WHERE id=$id`, { $id: id });
+        if (!r.length) return;
+        shabadId        = r[0][0];
+        highlightLineId = id;
+    }
+
+    // Position within the current result set
+    _modalShabadIdx = _modalShabadList.indexOf(String(shabadId)) !== -1
+        ? _modalShabadList.indexOf(String(shabadId))
+        : _modalShabadList.indexOf(shabadId);
+
+    renderShabadModal(shabadId, highlightLineId);
+    document.getElementById('shabad-modal').classList.add('open');
+}
+
+function renderShabadModal(shabadId, highlightLineId) {
+    const meta = dbExec(`
+        SELECT src.name_english, w.name_english, sec.name_english,
+               src.page_name_english,
+               (SELECT source_page FROM lines WHERE shabad_id=$sid ORDER BY order_id LIMIT 1)
+        FROM shabads sh
+        JOIN sources  src ON sh.source_id  = src.id
+        JOIN writers  w   ON sh.writer_id  = w.id
+        JOIN sections sec ON sh.section_id = sec.id
+        WHERE sh.id = $sid`, { $sid: shabadId });
+
+    if (meta.length) {
+        const [src, writer, section, pageName, page] = meta[0];
+        document.getElementById('modal-title').textContent = `Shabad — ${src}`;
+        document.getElementById('modal-meta').innerHTML =
+            `<strong>Writer:</strong> ${writer} &nbsp;|&nbsp; <strong>Section:</strong> ${section}` +
+            (pageName ? ` &nbsp;|&nbsp; <strong>${pageName}:</strong> ${page ?? '—'}` : '');
+    }
+
+    // FIX: Prev/Next based on position in current result set, not global sequence
+    const prevBtn = document.getElementById('modal-prev-btn');
+    const nextBtn = document.getElementById('modal-next-btn');
+    const hasList = _modalShabadList.length > 0 && _modalShabadIdx >= 0;
+
+    prevBtn.disabled = !hasList || _modalShabadIdx <= 0;
+    nextBtn.disabled = !hasList || _modalShabadIdx >= _modalShabadList.length - 1;
+
+    const posEl = document.getElementById('modal-shabad-pos');
+    posEl.textContent = hasList
+        ? `${_modalShabadIdx + 1} / ${_modalShabadList.length} in results`
+        : '';
+
+    // Render lines
+    const lines = dbExec(
+        `SELECT id, gurmukhi, source_line FROM lines WHERE shabad_id=$sid ORDER BY order_id`,
+        { $sid: shabadId });
+
+    const body = document.getElementById('modal-body');
+    body.innerHTML = '';
+    const tbl = document.createElement('table');
+    tbl.className = 'shabad-table';
+    lines.forEach(([lId, gurmukhi, srcLine], idx) => {
+        const tr = document.createElement('tr');
+        if (lId === highlightLineId) tr.classList.add('highlighted');
+        const numTd = document.createElement('td'); numTd.className = 'line-num';
+        numTd.textContent = srcLine ?? (idx + 1);
+        const txtTd = document.createElement('td'); txtTd.className = 'gurmukhi-text';
+        txtTd.textContent = gurmukhi;
+        tr.appendChild(numTd); tr.appendChild(txtTd);
+        tbl.appendChild(tr);
+    });
+    body.appendChild(tbl);
+
+    requestAnimationFrame(() => {
+        const hl = body.querySelector('.highlighted');
+        if (hl) hl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        else body.scrollTop = 0;
+    });
+}
+
+// FIX: Prev/Next navigate through _modalShabadList, not database order_id
+document.getElementById('modal-prev-btn').addEventListener('click', function () {
+    if (_modalShabadIdx > 0) {
+        _modalShabadIdx--;
+        renderShabadModal(_modalShabadList[_modalShabadIdx], null);
+    }
+});
+document.getElementById('modal-next-btn').addEventListener('click', function () {
+    if (_modalShabadIdx < _modalShabadList.length - 1) {
+        _modalShabadIdx++;
+        renderShabadModal(_modalShabadList[_modalShabadIdx], null);
+    }
+});
+
+// FIX: id="modal-close" now exists on the button, so this listener actually fires
+document.getElementById('modal-close').addEventListener('click',
+    () => document.getElementById('shabad-modal').classList.remove('open'));
+document.getElementById('shabad-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('shabad-modal').classList.remove('open');
+});
+
+// ══════════════════════════════════════════════════════════════════
+// TAB 1 — MASTER SEARCH DISPATCHER
+// FIX: all word queries now include transliterated_word (index 2)
+// ══════════════════════════════════════════════════════════════════
+document.getElementById('search-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') executeSearch();
+});
+
+function executeSearch() {
+    if (!db) return;
+    const mode  = document.getElementById('search-mode').value;
+    const q     = document.getElementById('search-input').value.trim();
+    const srcId = document.getElementById('search-source').value;
+    if (!q) return;
+
+    const listDiv  = document.getElementById('list-body');
+    const cntEl    = document.getElementById('list-count');
+    const ctxEl    = document.getElementById('search-context');
+    listDiv.innerHTML = '';
+    document.getElementById('stats-body').innerHTML = '';
+    document.getElementById('lines-body').innerHTML = '';
+
+    const srcLabel = srcId
+        ? ` in <strong>${document.getElementById('search-source').options[document.getElementById('search-source').selectedIndex].text}</strong>`
+        : '';
+    // For context message: translit terms are Latin; others display in Gurmukhi style
+    const qHtml = mode === 'translit'
+        ? `<em>${q}</em>`
+        : `<span class="gu">${q}</span>`;
+
+    // ── Phrase Search ────────────────────────────────────────────
+    if (mode === 'phrase') {
+        const words = q.trim().split(/\s+/).filter(Boolean);
+        if (words.length < 2) {
+            ctxEl.innerHTML = 'Enter at least 2 words separated by spaces.';
+            return;
+        }
+        const result = executePhraseSearch(words, srcId);
+        if (result.error) {
+            listDiv.innerHTML = `<p class="placeholder" style="color:#c0392b">${result.error}</p>`;
+            cntEl.style.display = 'none';
+            ctxEl.innerHTML = result.error;
+            return;
+        }
+        const subMode = document.getElementById('phrase-mode').value;
+        const modeLabel = subMode === 'consecutive' ? 'consecutive' : 'any order';
+        if (!result.rows.length) {
+            listDiv.innerHTML = '<p class="placeholder">No lines found for this phrase.</p>';
+            cntEl.style.display = 'none';
+            ctxEl.innerHTML = `No results for ${qHtml} (${modeLabel})${srcLabel}.`;
+            return;
+        }
+        ctxEl.innerHTML = `<strong>${result.rows.length}</strong> line${result.rows.length !== 1 ? 's' : ''} containing ${qHtml} — <em>${modeLabel}</em>${srcLabel}`;
+        renderPhraseResults(result.rows, subMode);
+        return;
+    }
+
+    // ── Prefix / Suffix Pairs ────────────────────────────────────
+    if (mode === 'prefix' || mode === 'suffix') {
+        const tLen  = [...q].length;
+        const pat   = mode === 'prefix' ? `${q}%` : `%${q}`;
+        const sExpr = mode === 'prefix'
+            ? `SUBSTR(w1.unicode_word, $tLen + 1)`
+            : `SUBSTR(w1.unicode_word, 1, LENGTH(w1.unicode_word) - $tLen)`;
+
+        // FIX: use alias-aware getSourceFilter — no more .replace() hack
+        const rawPairs = dbExec(`
+            SELECT DISTINCT w1.word_id, w1.unicode_word, w2.word_id, w2.unicode_word
+            FROM words w1
+            JOIN words w2 ON w2.unicode_word = ${sExpr} AND LENGTH(${sExpr}) > 0
+            WHERE w1.unicode_word LIKE $pat
+            ${getSourceFilter(srcId, 'w1')}
+            ${getSourceFilter(srcId, 'w2')}
+            ORDER BY w1.unicode_word`,
+            { $pat: pat, $tLen: tLen });
+
+        if (!rawPairs.length) {
+            listDiv.innerHTML = '<p class="placeholder">No pairs found.</p>';
+            cntEl.style.display = 'none';
+            ctxEl.innerHTML = `No pairs found for ${qHtml}${srcLabel}.`;
+            return;
+        }
+        cntEl.textContent = rawPairs.length; cntEl.style.display = 'inline-block';
+        const dir = mode === 'prefix' ? 'with and without leading' : 'with and without trailing';
+        ctxEl.innerHTML = `<strong>${rawPairs.length}</strong> pair${rawPairs.length!==1?'s':''} ${dir} ${qHtml}${srcLabel}`;
+
+        rawPairs.forEach(([id1, w1, id2, w2]) => {
+            const item = document.createElement('div'); item.className = 'pair-item';
+            item.innerHTML = mode === 'prefix'
+                ? `<strong>${w1}</strong><span class="arr">↔</span><span style="opacity:.7">${w2}</span>`
+                : `<span style="opacity:.7">${w2}</span><span class="arr">↔</span><strong>${w1}</strong>`;
+            item.onclick = () => {
+                document.querySelectorAll('.pair-item').forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+                buildDualPanel([{ label: w1, id: id1 }, { label: w2, id: id2 }]);
+            };
+            listDiv.appendChild(item);
+        });
+        return;
+    }
+
+    // ── Word-level searches ──────────────────────────────────────
+    // FIX: all queries include transliterated_word as 3rd column
+    let rows = [];
+
+    if (mode === 'exact') {
+        rows = dbExec(`SELECT DISTINCT w.word_id, w.unicode_word, w.transliterated_word FROM words w
+            WHERE w.unicode_word = $pat ${getSourceFilter(srcId)} ORDER BY w.unicode_word`,
+            { $pat: q });
+    } else if (mode === 'infix') {
+        rows = dbExec(`SELECT DISTINCT w.word_id, w.unicode_word, w.transliterated_word FROM words w
+            WHERE w.unicode_word LIKE $pat ${getSourceFilter(srcId)} ORDER BY w.unicode_word`,
+            { $pat: `%${q}%` });
+    } else if (mode === 'root') {
+        const sq   = stripMatras(q) + '%';
+        const sCol = stripMatrasSQL('w.unicode_word');
+        rows = dbExec(`SELECT DISTINCT w.word_id, w.unicode_word, w.transliterated_word FROM words w
+            WHERE ${sCol} LIKE $sq ${getSourceFilter(srcId)}
+            ORDER BY ${sCol}, LENGTH(w.unicode_word), w.unicode_word`,
+            { $sq: sq });
+    } else if (mode === 'translit') {
+        // New: search by Latin transliteration
+        rows = dbExec(`SELECT DISTINCT w.word_id, w.unicode_word, w.transliterated_word FROM words w
+            WHERE w.transliterated_word LIKE $pat ${getSourceFilter(srcId)}
+            ORDER BY w.transliterated_word`,
+            { $pat: `%${q}%` });
+    } else if (mode === 'rhyme') {
+        const minL = Math.max(1, parseInt(document.getElementById('rhyme-min').value) || 2);
+        rows = dbExec(`SELECT DISTINCT w.word_id, w.unicode_word, w.transliterated_word FROM words w
+            WHERE w.unicode_word LIKE $pat AND LENGTH(w.unicode_word) >= $minL
+            ${getSourceFilter(srcId)} ORDER BY w.unicode_word`,
+            { $pat: `%${q}`, $minL: minL });
+    }
+
+    if (!rows.length) {
+        listDiv.innerHTML = '<p class="placeholder">No results found.</p>';
+        cntEl.style.display = 'none';
+        ctxEl.innerHTML = `No results for ${qHtml}${srcLabel}.`;
+        return;
+    }
+
+    cntEl.textContent = rows.length; cntEl.style.display = 'inline-block';
+    ctxEl.innerHTML = `<strong>${rows.length}</strong> word${rows.length!==1?'s':''} for ${qHtml}${srcLabel}`;
+
+    const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    if (mode === 'rhyme') {
+        const groupLen = parseInt(document.getElementById('rhyme-group').value) || 0;
+        if (groupLen > 0) {
+            const groups = new Map();
+            rows.forEach(([wId, uni, translit]) => {
+                const chars = [...uni];
+                const key   = chars.length >= groupLen ? chars.slice(-groupLen).join('') : uni;
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push({ wId, uni, translit });
+            });
+            [...groups.entries()].sort((a, b) => b[1].length - a[1].length).forEach(([endKey, items]) => {
+                const hdr = document.createElement('div');
+                hdr.style.cssText = 'font-size:.72rem;font-weight:700;color:var(--muted);background:#f8f9fb;border-top:1px solid #eee;padding:.2rem .5rem;margin-top:.15rem;font-family:"Noto Sans Gurmukhi",serif';
+                hdr.textContent = `—${endKey} (${items.length})`;
+                listDiv.appendChild(hdr);
+                items.forEach(({ wId, uni, translit }) => renderWordItem(listDiv, wId, uni, translit, q, esc));
+            });
+            return;
+        }
+    }
+
+    rows.forEach(([wId, uni, translit]) => renderWordItem(listDiv, wId, uni, translit,
+        (mode === 'exact' || mode === 'infix') ? q : null, esc));
+}
+
+// FIX: transliterated_word parameter added; shown as subtitle below Gurmukhi word
+function renderWordItem(container, wId, uni, translit, highlightQ, esc) {
+    const item = document.createElement('div'); item.className = 'word-item';
+    if (highlightQ && esc) {
+        item.innerHTML = uni.replace(
+            new RegExp(`(${esc})`, 'u'),
+            '<mark style="background:#fff176;border-radius:2px">$1</mark>');
+    } else {
+        item.textContent = uni;
+    }
+    if (translit) {
+        const sub = document.createElement('div');
+        sub.className = 'word-sub';
+        sub.textContent = translit;
+        item.appendChild(sub);
+    }
+    item.onclick = () => {
+        document.querySelectorAll('#list-body .word-item').forEach(i => i.classList.remove('selected'));
+        item.classList.add('selected');
+        renderDetails(wId);
+    };
+    container.appendChild(item);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PHRASE SEARCH — execution + rendering
+// ══════════════════════════════════════════════════════════════════
+
+/**
+ * executePhraseSearch(words, srcId)
+ *   words  – array of Unicode Gurmukhi words already split by the caller
+ *   srcId  – optional source ID string for filtering
+ *
+ * Returns { rows } on success or { error } on failure.
+ * rows format: [srcName, writerName, gurmukhi, lineId, shabadId]
+ * (same format expected by buildGroupedLinesEl)
+ */
+function executePhraseSearch(words, srcId) {
+    const subMode  = document.getElementById('phrase-mode').value;
+    const srcWhere = srcId ? `AND sh.source_id = ${parseInt(srcId)}` : '';
+    const base = `
+        SELECT s.name_english, wr.name_english, l.gurmukhi, l.id, l.shabad_id
+        FROM lines l
+        JOIN shabads sh ON l.shabad_id = sh.id
+        JOIN sources  s ON sh.source_id = s.id
+        JOIN writers wr ON sh.writer_id = wr.id`;
+
+    if (subMode === 'consecutive') {
+        // Map each Unicode word to its ASCII original_word used in lines.gurmukhi
+        const origWords = [];
+        const notFound  = [];
+        for (const w of words) {
+            const r = dbExec(
+                `SELECT original_word FROM words WHERE unicode_word = $w LIMIT 1`,
+                { $w: w });
+            if (r.length && r[0][0]) origWords.push(r[0][0]);
+            else notFound.push(w);
+        }
+        if (notFound.length) {
+            return { error: `Word(s) not found in dictionary: "${notFound.join('", "')}". Verify spelling using Exact Match first.` };
+        }
+        // Pad both the line and the pattern with a space so the match only fires
+        // at true word boundaries — prevents "gur" inside "siqgur" from matching.
+        const phrase = origWords.join(' ');
+        return {
+            rows: dbExec(`${base}
+                WHERE (' ' || l.gurmukhi || ' ') LIKE $pat ${srcWhere}
+                ORDER BY s.id, wr.name_english, l.order_id`, { $pat: `% ${phrase} %` })
+        };
+
+    } else {
+        // Any-order: every word must appear somewhere on the same line via word_line_mapping
+        // One EXISTS clause per word with distinct table aliases to avoid SQL ambiguity
+        const params  = {};
+        const clauses = words.map((w, i) => {
+            params[`$pw${i}`] = w;
+            return `EXISTS (
+                SELECT 1 FROM word_line_mapping _wlm${i}
+                JOIN words _wd${i} ON _wlm${i}.word_id = _wd${i}.word_id
+                WHERE _wlm${i}.line_id = l.id AND _wd${i}.unicode_word = $pw${i}
+            )`;
+        }).join('\n              AND ');
+        return {
+            rows: dbExec(`${base}
+                WHERE ${clauses} ${srcWhere}
+                ORDER BY s.id, wr.name_english, l.order_id`, params)
+        };
+    }
+}
+
+/**
+ * renderPhraseResults(rows, subMode)
+ *   Populates all three panels (list / stats / lines) for phrase results.
+ *   rows format: [srcName, writerName, gurmukhi, lineId, shabadId]
+ */
+function renderPhraseResults(rows, subMode) {
+    const listDiv  = document.getElementById('list-body');
+    const statsDiv = document.getElementById('stats-body');
+    const linesDiv = document.getElementById('lines-body');
+    const cntEl    = document.getElementById('list-count');
+    listDiv.innerHTML = ''; statsDiv.innerHTML = ''; linesDiv.innerHTML = '';
+    cntEl.textContent = rows.length; cntEl.style.display = 'inline-block';
+
+    // Keep modal shabad nav in sync with this result set
+    const seenSh = new Set();
+    _modalShabadList = [];
+    rows.forEach(r => {
+        const sid = r[4];
+        if (sid != null && !seenSh.has(sid)) { seenSh.add(sid); _modalShabadList.push(sid); }
+    });
+    _modalShabadIdx = -1;
+
+    // Build per-source and per-writer buckets
+    const srcMap = new Map();
+    const wtrMap = new Map();
+    const shabadSet = new Set();
+    rows.forEach(row => {
+        const [src, wtr,,, sId] = row;
+        if (!srcMap.has(src)) srcMap.set(src, []);
+        srcMap.get(src).push(row);
+        wtrMap.set(wtr, (wtrMap.get(wtr) || 0) + 1);
+        shabadSet.add(sId);
+    });
+
+    // ── LIST PANEL: clickable source filter items ─────────────────
+    const allFilterItems = [];
+
+    function makeFilterItem(label, count, filterRows, isActive) {
+        const item = document.createElement('div');
+        item.className = 'word-item' + (isActive ? ' selected' : '');
+        item.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:0.4rem';
+        const lbl = document.createElement('span');
+        lbl.style.cssText = 'font-family:Inter,sans-serif;font-size:0.86rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+        lbl.textContent = label;
+        const badge = document.createElement('span');
+        badge.className = 'badge'; badge.textContent = count;
+        item.appendChild(lbl); item.appendChild(badge);
+        item.onclick = () => {
+            allFilterItems.forEach(i => i.classList.remove('selected'));
+            item.classList.add('selected');
+            linesDiv.innerHTML = '';
+            linesDiv.appendChild(buildGroupedLinesEl(filterRows));
+        };
+        allFilterItems.push(item);
+        return item;
+    }
+
+    listDiv.appendChild(makeFilterItem('All Sources', rows.length, rows, true));
+    [...srcMap.entries()].forEach(([src, srcRows]) =>
+        listDiv.appendChild(makeFilterItem(src, srcRows.length, srcRows, false)));
+
+    // ── STATS PANEL ───────────────────────────────────────────────
+    const tbl = document.createElement('table');
+
+    function addStatRow(label, val, strong) {
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.textContent = label;
+        const td2 = document.createElement('td');
+        td2.innerHTML = strong ? `<strong>${val}</strong>` : String(val);
+        tr.appendChild(td1); tr.appendChild(td2); tbl.appendChild(tr);
+    }
+    function addStatHeader(label) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td'); td.colSpan = 2;
+        td.style.cssText = 'background:var(--blue-light);color:var(--blue-dark);font-weight:700;'
+            + 'font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.3rem 0.5rem';
+        td.textContent = label; tr.appendChild(td); tbl.appendChild(tr);
+    }
+
+    addStatRow('Search mode',
+        subMode === 'consecutive' ? 'Consecutive — exact order' : 'Any order — same line');
+    addStatRow('Matching lines', rows.length, true);
+    addStatRow('Unique shabads', shabadSet.size, true);
+
+    addStatHeader('By Source');
+    [...srcMap.entries()].forEach(([src, srcRows]) => addStatRow(src, srcRows.length));
+
+    addStatHeader('By Writer');
+    [...wtrMap.entries()].sort((a, b) => b[1] - a[1]).forEach(([wtr, cnt]) => addStatRow(wtr, cnt));
+
+    statsDiv.appendChild(tbl);
+
+    // ── LINES PANEL: full grouped result immediately visible ──────
+    linesDiv.appendChild(buildGroupedLinesEl(rows));
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TAB 2 — MASTER ANALYTICS DISPATCHER
+// ══════════════════════════════════════════════════════════════════
+document.getElementById('analytics-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') executeAnalytics();
+});
+
+function executeAnalytics() {
+    if (!db) return;
+    const mode    = document.getElementById('analytics-mode').value;
+    const listDiv = document.getElementById('list-body');
+    const ctxEl   = document.getElementById('analytics-context');
+    const cntEl   = document.getElementById('list-count');
+    listDiv.innerHTML = '';
+    document.getElementById('stats-body').innerHTML = '';
+    document.getElementById('lines-body').innerHTML = '';
+
+    // ── Collocations ─────────────────────────────────────────────
+    if (mode === 'colloc') {
+        const q = document.getElementById('analytics-input').value.trim();
+        if (!q) return;
+        const found = dbExec(`SELECT word_id FROM words WHERE unicode_word=$q LIMIT 1`, { $q: q });
+        if (!found.length) {
+            listDiv.innerHTML = '<p class="placeholder">Target word not found in database.</p>';
+            ctxEl.innerHTML   = `Word <span class="gu">${q}</span> not found. Try the Search tab to find the exact spelling.`;
+            return;
+        }
+        const wId  = found[0][0];
+        const level = document.getElementById('colloc-level').value;
+        const srcId = document.getElementById('analytics-source').value;
+        const swc   = srcId ? `AND sh.source_id=${parseInt(srcId)}` : '';
+
+        let rows;
+        if (level === 'line') {
+            const sj = srcId ? 'JOIN lines l ON wlm1.line_id=l.id JOIN shabads sh ON l.shabad_id=sh.id' : '';
+            rows = dbExec(`
+                SELECT wlm2.word_id, w.unicode_word, COUNT(*) as cnt
+                FROM word_line_mapping wlm1
+                ${sj}
+                JOIN word_line_mapping wlm2 ON wlm1.line_id=wlm2.line_id
+                JOIN words w ON wlm2.word_id=w.word_id
+                WHERE wlm1.word_id=$wid AND wlm2.word_id!=$wid ${swc}
+                GROUP BY wlm2.word_id ORDER BY cnt DESC LIMIT 100`, { $wid: wId });
+        } else {
+            const sj = srcId ? 'JOIN shabads sh ON l1.shabad_id=sh.id' : '';
+            rows = dbExec(`
+                SELECT wlm2.word_id, w.unicode_word, COUNT(*) as cnt
+                FROM word_line_mapping wlm1
+                JOIN lines l1 ON wlm1.line_id=l1.id ${sj}
+                JOIN lines l2 ON l1.shabad_id=l2.shabad_id
+                JOIN word_line_mapping wlm2 ON l2.id=wlm2.line_id
+                JOIN words w ON wlm2.word_id=w.word_id
+                WHERE wlm1.word_id=$wid AND wlm2.word_id!=$wid ${swc}
+                GROUP BY wlm2.word_id ORDER BY cnt DESC LIMIT 100`, { $wid: wId });
+        }
+
+        if (!rows.length) {
+            listDiv.innerHTML = '<p class="placeholder">No co-occurring words found.</p>';
+            cntEl.style.display = 'none'; return;
+        }
+
+        const levelLabel = level === 'line' ? 'same line' : 'same shabad';
+        cntEl.textContent = rows.length; cntEl.style.display = 'inline-block';
+        ctxEl.innerHTML = `Top <strong>${rows.length}</strong> words with <span class="gu">${q}</span> in the ${levelLabel}`;
+
+        // FIX: removed unused maxCnt variable
+        rows.forEach(([coId, uni, cnt]) => {
+            const item = document.createElement('div'); item.className = 'word-item';
+            item.style.cssText = 'display:flex;justify-content:space-between;align-items:center';
+            const wordSpan = document.createElement('span'); wordSpan.textContent = uni;
+            const cntSpan  = document.createElement('span');
+            cntSpan.style.cssText = 'font-size:.78rem;background:var(--blue-light);color:var(--blue-dark);padding:2px 8px;border-radius:4px;font-family:Inter,sans-serif;font-weight:600';
+            cntSpan.textContent = cnt;
+            item.appendChild(wordSpan); item.appendChild(cntSpan);
+            item.onclick = () => {
+                document.querySelectorAll('#list-body .word-item').forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+                renderDetails(coId, { type: 'colloc', targetId: wId, level, srcId });
+            };
+            listDiv.appendChild(item);
+        });
+
+    // ── Word Frequency ────────────────────────────────────────────
+    } else if (mode === 'freq') {
+        const srcId = document.getElementById('analytics-source').value;
+        const wtrId = document.getElementById('analytics-writer').value;
+        const sort  = document.getElementById('freq-sort').value;
+        const limit = parseInt(document.getElementById('freq-limit').value);
+        const limSQL = limit > 0 ? `LIMIT ${limit}` : '';
+        const p = {};
+        let wc = '';
+        if (srcId) { wc += ' AND sh.source_id=$s'; p.$s = srcId; }
+        if (wtrId) { wc += ' AND sh.writer_id=$w'; p.$w = wtrId; }
+        const where = wc ? 'WHERE ' + wc.substring(5) : '';
+
+        const rows = (srcId || wtrId)
+            ? dbExec(`SELECT wlm.word_id, w.unicode_word, COUNT(DISTINCT wlm.line_id) as cnt
+                FROM word_line_mapping wlm
+                JOIN lines l ON wlm.line_id=l.id
+                JOIN shabads sh ON l.shabad_id=sh.id
+                JOIN words w ON wlm.word_id=w.word_id
+                ${where} GROUP BY wlm.word_id ORDER BY cnt ${sort} ${limSQL}`, p)
+            : dbExec(`SELECT wlm.word_id, w.unicode_word, COUNT(DISTINCT wlm.line_id) as cnt
+                FROM word_line_mapping wlm
+                JOIN words w ON wlm.word_id=w.word_id
+                GROUP BY wlm.word_id ORDER BY cnt ${sort} ${limSQL}`);
+
+        if (!rows.length) {
+            listDiv.innerHTML = '<p class="placeholder">No data found.</p>';
+            cntEl.style.display = 'none'; return;
+        }
+
+        cntEl.textContent = rows.length; cntEl.style.display = 'inline-block';
+        const total = rows.reduce((s, r) => s + r[2], 0);
+        ctxEl.innerHTML = `<strong>${rows.length}</strong> words · ${total.toLocaleString()} total occurrences`;
+
+        const tbl = document.createElement('table');
+        tbl.className = 'freq-table';
+        tbl.innerHTML = `<thead><tr><th style="width:2.5rem">#</th><th>Word</th><th>Count</th><th style="width:90px">Frequency</th></tr></thead>`;
+        const tbody  = document.createElement('tbody');
+        const maxCnt = Math.max(...rows.map(r => r[2]));
+        rows.forEach(([wId, uni, cnt], i) => {
+            const pct = Math.max(2, Math.round(cnt / maxCnt * 100));
+            const tr  = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="color:var(--muted);text-align:right">${i + 1}</td>
+                <td class="gurmukhi-uni">${uni}</td>
+                <td style="font-variant-numeric:tabular-nums">${cnt.toLocaleString()}</td>
+                <td><div class="freq-bar-wrap"><div class="freq-bar-fill" style="width:${pct}%"></div></div></td>`;
+            tr.onclick = () => {
+                tbody.querySelectorAll('tr.selected').forEach(r => r.classList.remove('selected'));
+                tr.classList.add('selected');
+                renderDetails(wId, { type: 'freq', srcId, wtrId });
+            };
+            tbody.appendChild(tr);
+        });
+        tbl.appendChild(tbody);
+        listDiv.appendChild(tbl);
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TAB 3 — MASTER BROWSE DISPATCHER
+// ══════════════════════════════════════════════════════════════════
+// FIX: removed _browseCurrentPage and _browseSourceId (assigned but never read)
+let _browseMaxPage = null;
+
+function executeBrowse() {
+    if (!db) return;
+    const mode    = document.getElementById('browse-mode').value;
+    const body    = document.getElementById('read-body');
+    const ctxEl   = document.getElementById('browse-context');
+    body.innerHTML = '';
+    document.getElementById('read-words-body').innerHTML = '<p class="placeholder">Click a line to extract words.</p>';
+    document.getElementById('read-stats-body').innerHTML = '<p class="placeholder">Click a word to view.</p>';
+    document.getElementById('read-count').style.display  = 'none';
+
+    if (mode === 'page') {
+        const srcSel = document.getElementById('browse-source');
+        const srcId  = srcSel.value;
+        const page   = parseInt(document.getElementById('browse-page-num').value);
+        if (!srcId || !page) {
+            ctxEl.innerHTML = 'Please select a source and enter a page number.'; return;
+        }
+        const srcRow = dbExec(`SELECT length FROM sources WHERE id=$id`, { $id: srcId });
+        _browseMaxPage = srcRow[0]?.[0] ?? null;
+
+        const srcName = srcSel.options[srcSel.selectedIndex].text.split(' (')[0];
+        const lines = dbExec(`
+            SELECT l.id, l.gurmukhi, l.shabad_id, w.name_english, sec.name_english
+            FROM lines l
+            JOIN shabads sh  ON l.shabad_id  = sh.id
+            JOIN writers  w  ON sh.writer_id = w.id
+            JOIN sections sec ON sh.section_id= sec.id
+            JOIN sources  src ON sh.source_id = src.id
+            WHERE src.id=$s AND l.source_page=$p
+            ORDER BY l.order_id`, { $s: srcId, $p: page });
+
+        ctxEl.innerHTML = `Page <strong>${page}</strong>${_browseMaxPage ? ` of <strong>${_browseMaxPage}</strong>` : ''} — ${srcName} — ${lines.length} lines`;
+        document.getElementById('read-title').textContent = `${srcName} — Page ${page}`;
+        renderReadingPanel(lines, body);
+
+    } else {
+        const baniId  = document.getElementById('browse-bani-select').value;
+        const baniSel = document.getElementById('browse-bani-select');
+        if (!baniId) { ctxEl.innerHTML = 'Please select a Bani.'; return; }
+
+        const baniName = baniSel.options[baniSel.selectedIndex].text.split(' — ')[0];
+        const lines = dbExec(`
+            SELECT l.id, l.gurmukhi, l.shabad_id, w.name_english, sec.name_english
+            FROM bani_lines bl
+            JOIN lines l     ON bl.line_id   = l.id
+            JOIN shabads sh  ON l.shabad_id  = sh.id
+            JOIN writers  w  ON sh.writer_id = w.id
+            JOIN sections sec ON sh.section_id= sec.id
+            WHERE bl.bani_id=$b
+            ORDER BY bl.line_group, l.order_id`, { $b: baniId });
+
+        ctxEl.innerHTML = `<strong>${lines.length}</strong> lines in <strong>${baniName}</strong>`;
+        document.getElementById('read-title').textContent = baniName;
+        renderReadingPanel(lines, body);
+    }
+}
+
+// FIX: now sets _modalShabadList from the browse result set for modal navigation
+function renderReadingPanel(lines, container) {
+    if (!lines.length) {
+        container.innerHTML = '<p class="placeholder">No lines found.</p>'; return;
+    }
+
+    // Set modal navigation list from this page/bani's shabads, in display order
+    const seenSh = new Set();
+    _modalShabadList = [];
+    lines.forEach(([,, sId]) => {
+        if (!seenSh.has(sId)) { seenSh.add(sId); _modalShabadList.push(sId); }
+    });
+    _modalShabadIdx = -1;
+
+    const dict = {}; const order = [];
+    lines.forEach(([lId, gur, sId, wtr, sec]) => {
+        if (!dict[sId]) { dict[sId] = { wtr, sec, lines: [] }; order.push(sId); }
+        dict[sId].lines.push({ lId, gur });
+    });
+
+    order.forEach(sId => {
+        const { wtr, sec, lines: shabLines } = dict[sId];
+        const block = document.createElement('div'); block.className = 'shabad-block';
+        const hdr   = document.createElement('div'); hdr.className = 'shabad-block-header';
+        hdr.innerHTML = `<span>${wtr} — ${sec}</span>`;
+        const ob = document.createElement('button');
+        ob.className = 'shabad-btn'; ob.textContent = '📖 Full Shabad';
+        ob.onclick = e => { e.stopPropagation(); openShabadModal(sId, 'shabad'); };
+        hdr.appendChild(ob); block.appendChild(hdr);
+
+        const tbl = document.createElement('table'); tbl.style.width = '100%';
+        shabLines.forEach(({ lId, gur }) => {
+            const tr = document.createElement('tr'); tr.className = 'read-line-row';
+            tr.innerHTML = `<td class="gurmukhi-text">${gur}</td>`;
+            tr.onclick = () => {
+                container.querySelectorAll('.read-line-row.active').forEach(r => r.classList.remove('active'));
+                tr.classList.add('active');
+                extractLineWords(lId);
+            };
+            tbl.appendChild(tr);
+        });
+        block.appendChild(tbl);
+        container.appendChild(block);
+    });
+}
+
+// FIX: query now includes transliterated_word; word items show it as subtitle
+function extractLineWords(lineId) {
+    const words = dbExec(`
+        SELECT DISTINCT w.word_id, w.unicode_word, w.transliterated_word
+        FROM word_line_mapping wlm
+        JOIN words w ON wlm.word_id = w.word_id
+        WHERE wlm.line_id = $l ORDER BY w.unicode_word`, { $l: lineId });
+
+    const wBody = document.getElementById('read-words-body');
+    const cntEl = document.getElementById('read-count');
+    wBody.innerHTML = '';
+    document.getElementById('read-stats-body').innerHTML = '<p class="placeholder">Click a word to view.</p>';
+
+    if (!words.length) {
+        wBody.innerHTML = '<p class="placeholder">No words mapped to this line.</p>';
+        cntEl.style.display = 'none'; return;
+    }
+    cntEl.textContent = words.length; cntEl.style.display = 'inline-block';
+
+    words.forEach(([wId, uni, translit]) => {
+        const item = document.createElement('div'); item.className = 'word-item';
+        item.textContent = uni;
+        if (translit) {
+            const sub = document.createElement('div');
+            sub.className = 'word-sub';
+            sub.textContent = translit;
+            item.appendChild(sub);
+        }
+        item.onclick = () => {
+            wBody.querySelectorAll('.word-item').forEach(i => i.classList.remove('selected'));
+            item.classList.add('selected');
+            const sb = document.getElementById('read-stats-body');
+            try {
+                sb.innerHTML = '';
+                const jumpBtn = document.createElement('button');
+                jumpBtn.className = 'btn btn-jump-search';
+                jumpBtn.innerHTML = '🔍 Show all occurrences in Search';
+                jumpBtn.onclick = () => jumpToSearch(uni);
+                sb.appendChild(jumpBtn);
+                sb.appendChild(buildStatsTable(getWordStats(wId), wId, null));
+            } catch (e) {
+                sb.innerHTML = '<p style="color:#c0392b">Error loading statistics.</p>';
+            }
+        };
+        wBody.appendChild(item);
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// BROWSE → SEARCH JUMP
+// ══════════════════════════════════════════════════════════════════
+function jumpToSearch(unicodeWord) {
+    document.querySelector('.tab-btn[data-tab="ctrl-search"]').click();
+    const modeEl = document.getElementById('search-mode');
+    modeEl.value = 'exact';
+    toggleSearchOptions();
+    document.getElementById('search-input').value = unicodeWord;
+    executeSearch();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function navigatePage(dir) {
+    let val = parseInt(document.getElementById('browse-page-num').value) || 1;
+    val = Math.max(1, val + dir);
+    if (_browseMaxPage) val = Math.min(val, _browseMaxPage);
+    document.getElementById('browse-page-num').value = val;
+    executeBrowse();
+}
+
+document.getElementById('browse-page-num').addEventListener('keydown', e => {
+    if (e.key === 'Enter') executeBrowse();
+});
+
+// ══════════════════════════════════════════════════════════════════
+// HELP GUIDE — tab switching
+// ══════════════════════════════════════════════════════════════════
+document.querySelectorAll('.help-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.help-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.help-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.help).classList.add('active');
+    });
+});
+
+// Close help modal on backdrop click or Escape
+document.getElementById('help-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        document.getElementById('help-modal').classList.remove('open');
+        document.getElementById('shabad-modal').classList.remove('open');
+    }
+});
+</script>
+
+</body>
+</html>
